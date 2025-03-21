@@ -14,8 +14,14 @@ const ColorPredictionApp = () => {
             return;
 
         const num = parseInt(numberInput);
+        const lastPeriod =
+            signals.length > 0
+                ? parseInt(signals[0].period)
+                : parseInt(periodNumber);
+        const newPeriod = lastPeriod + 1; // Ensure the period number is incremented correctly
+
         const newSignal = {
-            period: periodNumber, // Store period number for table
+            period: newPeriod, // Incremented period number
             value: num,
             color: num % 2 === 0 ? "🔴" : "🟢",
             size: num >= 5 ? "Big" : "Small",
@@ -24,8 +30,8 @@ const ColorPredictionApp = () => {
         const updatedSignals = [newSignal, ...signals.slice(0, 9)];
         setSignals(updatedSignals);
 
-        // Increment period number for next entry
-        setPeriodNumber((prev) => (prev ? parseInt(prev) + 1 : 1));
+        // Update the period number state for the next entry
+        setPeriodNumber(newPeriod);
 
         setNumberInput("");
 
@@ -34,12 +40,14 @@ const ColorPredictionApp = () => {
         }
     };
 
-    const predictNext = (lastSignal) => {
+    const predictNext = (lastSignals) => {
         let predictedNumbers = [];
         let predictionResult = "";
 
-        const latestSignal = lastSignal[0]; // Get the latest signal
-        const nextPeriod = parseInt(latestSignal.period) + 1; // Next period number
+        if (lastSignals.length === 0) return;
+
+        const latestSignal = lastSignals[0]; // Get the most recent signal
+        const nextPeriod = parseInt(latestSignal.period) + 1; // Increment period number for prediction
 
         if (Math.random() > 0.5) {
             // Predict by Size
