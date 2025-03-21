@@ -38,9 +38,12 @@ const ColorPredictionApp = () => {
         let predictedNumbers = [];
         let predictionResult = "";
 
+        const latestSignal = lastSignal[0]; // Get the latest signal
+        const nextPeriod = parseInt(latestSignal.period) + 1; // Next period number
+
         if (Math.random() > 0.5) {
             // Predict by Size
-            if (lastSignal.size === "Big") {
+            if (latestSignal.size === "Big") {
                 predictedNumbers = [
                     Math.floor(Math.random() * 5) + 5,
                     Math.floor(Math.random() * 5) + 5,
@@ -51,12 +54,12 @@ const ColorPredictionApp = () => {
                     Math.floor(Math.random() * 5),
                 ];
             }
-            predictionResult = `Predicted Numbers: ${predictedNumbers.join(
+            predictionResult = `${nextPeriod} : ${predictedNumbers.join(
                 ", "
-            )} (${lastSignal.size})`;
+            )} (${latestSignal.size})`;
         } else {
             // Predict by Indicator
-            if (lastSignal.color === "🔴") {
+            if (latestSignal.color === "🔴") {
                 predictedNumbers = [2, 4, 6, 8]
                     .sort(() => 0.5 - Math.random())
                     .slice(0, 2);
@@ -65,9 +68,9 @@ const ColorPredictionApp = () => {
                     .sort(() => 0.5 - Math.random())
                     .slice(0, 2);
             }
-            predictionResult = `Predicted Numbers: ${predictedNumbers.join(
+            predictionResult = ` ${nextPeriod} : ${predictedNumbers.join(
                 ", "
-            )} (${lastSignal.color})`;
+            )} (${latestSignal.color})`;
         }
 
         setPrediction(predictionResult);
