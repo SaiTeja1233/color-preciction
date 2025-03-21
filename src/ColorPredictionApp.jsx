@@ -137,6 +137,15 @@ const ColorPredictionApp = () => {
             >
                 Reset Table
             </button>
+            {/* Prediction Result */}
+            {prediction && (
+                <div style={{ marginTop: "20px" }}>
+                    <h3>Next Prediction</h3>
+                    <p style={{ fontSize: "20px", fontWeight: "bold" }}>
+                        {prediction}
+                    </p>
+                </div>
+            )}
 
             {/* Table */}
             <table
@@ -180,16 +189,6 @@ const ColorPredictionApp = () => {
                     )}
                 </tbody>
             </table>
-
-            {/* Prediction Result */}
-            {prediction && (
-                <div style={{ marginTop: "20px" }}>
-                    <h3>Next Prediction</h3>
-                    <p style={{ fontSize: "20px", fontWeight: "bold" }}>
-                        {prediction}
-                    </p>
-                </div>
-            )}
 
             {/* Graph */}
             <div
