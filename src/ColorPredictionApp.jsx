@@ -14,11 +14,10 @@ const ColorPredictionApp = () => {
             return;
 
         const num = parseInt(numberInput);
-        const lastPeriod =
+        const newPeriod =
             signals.length > 0
-                ? parseInt(signals[0].period)
-                : parseInt(periodNumber);
-        const newPeriod = lastPeriod + 1; // Ensure the period number is incremented correctly
+                ? parseInt(signals[0].period) + 1
+                : parseInt(periodNumber); // Keep initial input when empty
 
         const newSignal = {
             period: newPeriod, // Incremented period number
