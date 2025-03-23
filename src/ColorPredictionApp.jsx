@@ -1,232 +1,184 @@
 import React, { useState } from "react";
-import { Line } from "react-chartjs-2";
-import "chart.js/auto";
 import "./ColorPredictionApp.css";
 
 const ColorPredictionApp = () => {
-    const [signals, setSignals] = useState([]);
-    const [periodNumber, setPeriodNumber] = useState("");
-    const [numberInput, setNumberInput] = useState("");
-    const [prediction, setPrediction] = useState("");
+    const [columns, setColumns] = useState([]); // Stores numbers
+    const [inputNumber, setInputNumber] = useState(""); // Number input
+    const [period, setPeriod] = useState(""); // Period input (initial)
+    const [prediction, setPrediction] = useState(null); // Stores predicted next number
+    const [periodSet, setPeriodSet] = useState(false); // Tracks if period is set
 
-    const handleAddSignal = () => {
-        if (numberInput === "" || isNaN(numberInput) || periodNumber === "")
+    // Function to add number
+    const addNumber = () => {
+        const newNumber = parseInt(inputNumber, 10);
+
+        if (isNaN(newNumber) || newNumber < 0 || newNumber > 9) {
+            alert("Please enter a valid number between 0 and 9.");
             return;
-
-        const num = parseInt(numberInput);
-        const newPeriod =
-            signals.length > 0
-                ? parseInt(signals[0].period) + 1
-                : parseInt(periodNumber); // Keep initial input when empty
-
-        const newSignal = {
-            period: newPeriod, // Incremented period number
-            value: num,
-            color: num % 2 === 0 ? "🔴" : "🟢",
-            size: num >= 5 ? "Big" : "Small",
-        };
-
-        const updatedSignals = [newSignal, ...signals.slice(0, 9)];
-        setSignals(updatedSignals);
-
-        // Update the period number state for the next entry
-        setPeriodNumber(newPeriod);
-
-        setNumberInput("");
-
-        if (updatedSignals.length >= 3) {
-            predictNext(updatedSignals);
         }
-    };
-
-    const predictNext = (lastSignals) => {
-        let predictedNumbers = [];
-        let predictionResult = "";
-
-        if (lastSignals.length === 0) return;
-
-        const latestSignal = lastSignals[0]; // Get the most recent signal
-        const nextPeriod = parseInt(latestSignal.period) + 1; // Increment period number for prediction
-
-        if (Math.random() > 0.5) {
-            // Predict by Size
-            if (latestSignal.size === "Big") {
-                predictedNumbers = [
-                    Math.floor(Math.random() * 5) + 5,
-                    Math.floor(Math.random() * 5) + 5,
-                ];
-            } else {
-                predictedNumbers = [
-                    Math.floor(Math.random() * 5),
-                    Math.floor(Math.random() * 5),
-                ];
-            }
-            predictionResult = `${nextPeriod} : ${predictedNumbers.join(
-                ", "
-            )} (${latestSignal.size})`;
-        } else {
-            // Predict by Indicator
-            if (latestSignal.color === "🔴") {
-                predictedNumbers = [2, 4, 6, 8]
-                    .sort(() => 0.5 - Math.random())
-                    .slice(0, 2);
-            } else {
-                predictedNumbers = [1, 3, 5, 7, 9]
-                    .sort(() => 0.5 - Math.random())
-                    .slice(0, 2);
-            }
-            predictionResult = ` ${nextPeriod} : ${predictedNumbers.join(
-                ", "
-            )} (${latestSignal.color})`;
+        if (!periodSet) {
+            alert("Please enter a period number first.");
+            return;
         }
 
-        setPrediction(predictionResult);
+        setColumns((prevColumns) => {
+            let updatedColumns = [...prevColumns];
+
+            if (updatedColumns.length === 0) {
+                updatedColumns = [[{ num: newNumber, period }]];
+            } else {
+                const lastColumn = updatedColumns[updatedColumns.length - 1];
+                const lastColumnIsEven = lastColumn[0].num % 2 === 0;
+                const newNumberIsEven = newNumber % 2 === 0;
+
+                if (
+                    (newNumberIsEven && lastColumnIsEven) ||
+                    (!newNumberIsEven && !lastColumnIsEven)
+                ) {
+                    updatedColumns[updatedColumns.length - 1] = [
+                        ...lastColumn,
+                        { num: newNumber, period },
+                    ];
+                } else {
+                    updatedColumns.push([{ num: newNumber, period }]);
+                }
+            }
+
+            // Store up to 20 columns but display only last 10
+            if (updatedColumns.length > 20) {
+                updatedColumns.shift();
+            }
+
+            // Trigger prediction when 9 columns are completed
+            if (updatedColumns.length >= 9) {
+                const predictedNum = predictNextNumber(updatedColumns);
+                setPrediction(predictedNum);
+            }
+
+            return updatedColumns;
+        });
+
+        setPeriod(period + 1); // Auto-increment period
+        setInputNumber(""); // Clear number input
     };
 
-    const resetTable = () => {
-        setSignals([]);
-        setPrediction("");
-        setPeriodNumber("");
+   const predictNextNumber = (data) => {
+       if (!data || data.length === 0) return null;
+
+       const numberFrequency = Array(10).fill(0);
+       const colorFrequency = { red: 0, green: 0 };
+
+       // Weight recent entries higher for better trend prediction
+       const weightFactor = data.length > 5 ? 1.5 : 1;
+
+       data.flat().forEach((entry, index) => {
+           numberFrequency[entry.num] += weightFactor * (index + 1); // More weight for recent numbers
+           if (entry.color === "red") colorFrequency.red += 1;
+           if (entry.color === "green") colorFrequency.green += 1;
+       });
+
+       // Find the number with the highest weighted frequency
+       const maxFreq = Math.max(...numberFrequency);
+       const weightedNumbers = numberFrequency
+           .map((freq, num) => (freq === maxFreq ? num : null))
+           .filter((num) => num !== null);
+
+       // Predict number based on weighted probability
+       let predictedNumber =
+           weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
+
+       // Predict color based on color frequency trends
+       const predictedColor =
+           colorFrequency.red >= colorFrequency.green ? "red" : "green";
+
+       return { number: predictedNumber, color: predictedColor };
+   };
+
+
+    // Handle Enter Key Press
+    const handleKeyPress = (e) => {
+        if (e.key === "Enter") {
+            addNumber();
+        }
     };
 
     return (
-        <div
-            style={{
-                textAlign: "center",
-                padding: "20px",
-                background: "#222",
-                color: "white",
-                maxWidth: "500px",
-                margin: "auto",
-                borderRadius: "10px",
-            }}
-        >
-            <h2>Color Prediction App</h2>
-            {signals.length === 0 && (
-                <input
-                    type="number"
-                    value={periodNumber}
-                    onChange={(e) => setPeriodNumber(e.target.value)}
-                    placeholder="Enter First Period Number"
-                    style={{ margin: "5px", padding: "8px", width: "90%" }}
-                />
-            )}
-            <input
-                type="number"
-                value={numberInput}
-                onChange={(e) => setNumberInput(e.target.value)}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                        handleAddSignal();
-                    }
-                }}
-                placeholder="Enter Signal Number"
-                style={{ margin: "5px", padding: "8px", width: "90%" }}
-            />
-
-            <button
-                onClick={handleAddSignal}
-                style={{ margin: "5px", padding: "10px", width: "45%" }}
-            >
-                Add Signal
-            </button>
-            <button
-                onClick={resetTable}
-                style={{ margin: "5px", padding: "10px", width: "45%" }}
-            >
-                Reset Table
-            </button>
-            {/* Prediction Result */}
-            {prediction && (
-                <div style={{ marginTop: "20px" }}>
-                    <h3>Next Prediction</h3>
-                    <p style={{ fontSize: "20px", fontWeight: "bold" }}>
-                        {prediction}
-                    </p>
+        <div className="container">
+            {/* Initial Period Input */}
+            {!periodSet && (
+                <div className="input-container">
+                    <input
+                        type="number"
+                        min="1"
+                        value={period}
+                        onChange={(e) =>
+                            setPeriod(parseInt(e.target.value, 10) || "")
+                        }
+                        placeholder="Enter period"
+                        className="period-input"
+                    />
+                    <button
+                        onClick={() => period && setPeriodSet(true)}
+                        className="set-period-btn"
+                    >
+                        Set Period
+                    </button>
                 </div>
             )}
 
-            {/* Table */}
-            <table
-                border="1"
-                style={{
-                    width: "100%",
-                    marginTop: "20px",
-                    textAlign: "center",
-                    background: "#333",
-                    borderRadius: "5px",
-                }}
-            >
-                <thead>
-                    <tr>
-                        <th>Period</th>
-                        <th>Number</th>
-                        <th>Size</th>
-                        <th>Indicator</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {signals.length === 0 ? (
-                        <tr>
-                            <td colSpan="4" style={{ color: "gray" }}>
-                                No data entered
-                            </td>
-                        </tr>
-                    ) : (
-                        signals.map((signal, index) => (
-                            <tr key={index}>
-                                <td style={{ color: "lightgray" }}>
-                                    {signal.period}
-                                </td>
-                                <td style={{ color: "white" }}>
-                                    {signal.value}
-                                </td>
-                                <td>{signal.size}</td>
-                                <td>{signal.color}</td>
-                            </tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
+            {/* Number Input */}
+            {periodSet && (
+                <div className="input-container">
+                    <input
+                        type="number"
+                        min="0"
+                        max="9"
+                        value={inputNumber}
+                        onChange={(e) => setInputNumber(e.target.value)}
+                        placeholder="Enter number (0-9)"
+                        className="number-input"
+                        onKeyPress={handleKeyPress}
+                    />
+                    <button onClick={addNumber} className="add-btn">
+                        Add
+                    </button>
+                </div>
+            )}
 
-            {/* Graph */}
-            <div
-                style={{ width: "100%", height: "300px", margin: "20px auto" }}
-            >
-                <Line
-                    data={{
-                        labels: signals.map((_, index) => index + 1), // Hide period numbers, use index
-                        datasets: [
-                            {
-                                label: "Numbers Trend",
-                                data: signals.map((s) => s.value),
-                                borderColor: "red",
-                                backgroundColor: "rgba(255, 99, 132, 0.5)",
-                                fill: false,
-                                borderWidth: 2,
-                                pointRadius: 5,
-                                pointBackgroundColor: "red",
-                                tension: 0,
-                            },
-                        ],
-                    }}
-                    options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: {
-                                grid: { color: "gray" },
-                                ticks: { color: "white" },
-                            },
-                            y: {
-                                grid: { color: "gray" },
-                                ticks: { color: "white" },
-                            },
-                        },
-                    }}
-                />
+            {/* Scrollable Number Grid */}
+            <div className="scroll-container">
+                <div className="grid-container">
+                    {columns.slice(-10).map((column, colIndex) => (
+                        <div key={colIndex} className="column">
+                            {column.map((entry, rowIndex) => (
+                                <div
+                                    key={`${colIndex}-${rowIndex}`}
+                                    className={`grid-box ${
+                                        entry.num % 2 === 0 ? "red" : "green"
+                                    }`}
+                                    title={`Period: ${entry.period}`}
+                                >
+                                    {entry.num}
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
             </div>
+
+            {/* Prediction Display */}
+            {prediction !== null && (
+                <div className="prediction-box">
+                    <h3>Predicted Next Number:</h3>
+                    <div
+                        className={`grid-box ${
+                            prediction % 2 === 0 ? "red" : "green"
+                        }`}
+                    >
+                        {prediction}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
