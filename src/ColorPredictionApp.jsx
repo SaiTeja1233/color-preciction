@@ -1,14 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./ColorPredictionApp.css";
 
 const ColorPredictionApp = () => {
-    const [columns, setColumns] = useState([]); // Stores numbers
-    const [inputNumber, setInputNumber] = useState(""); // Number input
-    const [period, setPeriod] = useState(""); // Period input (initial)
-    const [prediction, setPrediction] = useState(null); // Stores predicted next number
-    const [periodSet, setPeriodSet] = useState(false); // Tracks if period is set
+    const [columns, setColumns] = useState([]);
+    const [inputNumber, setInputNumber] = useState("");
+    const [period, setPeriod] = useState("");
+    const [prediction, setPrediction] = useState(null);
+    const [periodSet, setPeriodSet] = useState(false);
+    const [totalNumbers, setTotalNumbers] = useState(0);
 
-    // Function to add number
     const addNumber = () => {
         const newNumber = parseInt(inputNumber, 10);
 
@@ -44,59 +44,58 @@ const ColorPredictionApp = () => {
                 }
             }
 
-            // Store up to 20 columns
             if (updatedColumns.length > 20) {
                 updatedColumns.shift();
-            }
-
-            // Trigger prediction after 20 columns are stored
-            if (updatedColumns.length === 20) {
-                const predictedData = predictNextNumber(updatedColumns);
-                setPrediction(predictedData);
             }
 
             return updatedColumns;
         });
 
-        setPeriod(period + 1); // Auto-increment period
-        setInputNumber(""); // Clear number input
+        setTotalNumbers((prevTotal) => prevTotal + 1);
+        setPeriod((prevPeriod) => prevPeriod + 1);
+        setInputNumber("");
     };
 
-    // Improved Prediction Function
-    const predictNextNumber = (data) => {
-        if (data.length < 20) return null; // Ensure at least 20 columns exist
+    const predictNextNumber = useCallback(
+        (data) => {
+            if (totalNumbers < 15) return null;
 
-        const numberFrequency = Array(10).fill(0);
-        const colorFrequency = { red: 0, green: 0 };
+            const last15Data = data.flat().slice(-15);
 
-        // Assign weights based on recency (latest entries matter more)
-        const weightFactor = data.length > 10 ? 1.5 : 1;
+            // Count occurrences of each number (0-9)
+            const numberCount = Array(10).fill(0);
+            const colorCount = { red: 0, green: 0 };
 
-        data.flat().forEach((entry, index) => {
-            const weight = (index + 1) * weightFactor; // Increase weight for recent numbers
-            numberFrequency[entry.num] += weight;
-            if (entry.num % 2 === 0) colorFrequency.red += weight;
-            else colorFrequency.green += weight;
-        });
+            last15Data.forEach((entry) => {
+                numberCount[entry.num]++;
+                if (entry.num % 2 === 0) {
+                    colorCount.red++;
+                } else {
+                    colorCount.green++;
+                }
+            });
 
-        // Find the most frequent number with highest weight
-        const maxFreq = Math.max(...numberFrequency);
-        const weightedNumbers = numberFrequency
-            .map((freq, num) => (freq === maxFreq ? num : null))
-            .filter((num) => num !== null);
+            // Find the most frequent number
+            let predictedNumber = numberCount.indexOf(Math.max(...numberCount));
 
-        // Predict number based on weighted probability
-        const predictedNumber =
-            weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
+            // Determine the dominant color
+           let predictedColor = predictedNumber % 2 === 0 ? "red" : "green";
 
-        // Predict color based on past color frequency trends
-        const predictedColor =
-            colorFrequency.red >= colorFrequency.green ? "red" : "green";
+            return {
+                number: predictedNumber,
+                color: predictedColor,
+            };
+        },
+        [totalNumbers]
+    );
 
-        return { number: predictedNumber, color: predictedColor };
-    };
+    useEffect(() => {
+        if (totalNumbers >= 15) {
+            const predictedData = predictNextNumber(columns);
+            setPrediction(predictedData);
+        }
+    }, [totalNumbers, columns, predictNextNumber]);
 
-    // Handle Enter Key Press
     const handleKeyPress = (e) => {
         if (e.key === "Enter") {
             addNumber();
@@ -105,7 +104,6 @@ const ColorPredictionApp = () => {
 
     return (
         <div className="container">
-            {/* Initial Period Input */}
             {!periodSet && (
                 <div className="input-container">
                     <input
@@ -127,7 +125,6 @@ const ColorPredictionApp = () => {
                 </div>
             )}
 
-            {/* Number Input */}
             {periodSet && (
                 <div className="input-container">
                     <input
@@ -146,7 +143,6 @@ const ColorPredictionApp = () => {
                 </div>
             )}
 
-            {/* Scrollable Number Grid */}
             <div className="scroll-container">
                 <div className="grid-container">
                     {columns.slice(-10).map((column, colIndex) => (
@@ -167,15 +163,10 @@ const ColorPredictionApp = () => {
                 </div>
             </div>
 
-            {/* Prediction Display */}
             {prediction !== null && (
                 <div className="prediction-box">
-                    <h3>Predicted Next Number:</h3>
-                    <div
-                        className={`grid-box ${
-                            prediction.color === "red" ? "red" : "green"
-                        }`}
-                    >
+                    <h3>Predicted Next:</h3>
+                    <div className={`grid-box ${prediction.color}`}>
                         {prediction.number}
                     </div>
                 </div>
