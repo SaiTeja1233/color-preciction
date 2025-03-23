@@ -44,15 +44,15 @@ const ColorPredictionApp = () => {
                 }
             }
 
-            // Store up to 20 columns but display only last 10
+            // Store up to 20 columns
             if (updatedColumns.length > 20) {
                 updatedColumns.shift();
             }
 
-            // Trigger prediction when 9 columns are completed
-            if (updatedColumns.length >= 9) {
-                const predictedNum = predictNextNumber(updatedColumns);
-                setPrediction(predictedNum);
+            // Trigger prediction after 20 columns are stored
+            if (updatedColumns.length === 20) {
+                const predictedData = predictNextNumber(updatedColumns);
+                setPrediction(predictedData);
             }
 
             return updatedColumns;
@@ -62,38 +62,39 @@ const ColorPredictionApp = () => {
         setInputNumber(""); // Clear number input
     };
 
-   const predictNextNumber = (data) => {
-       if (!data || data.length === 0) return null;
+    // Improved Prediction Function
+    const predictNextNumber = (data) => {
+        if (data.length < 20) return null; // Ensure at least 20 columns exist
 
-       const numberFrequency = Array(10).fill(0);
-       const colorFrequency = { red: 0, green: 0 };
+        const numberFrequency = Array(10).fill(0);
+        const colorFrequency = { red: 0, green: 0 };
 
-       // Weight recent entries higher for better trend prediction
-       const weightFactor = data.length > 5 ? 1.5 : 1;
+        // Assign weights based on recency (latest entries matter more)
+        const weightFactor = data.length > 10 ? 1.5 : 1;
 
-       data.flat().forEach((entry, index) => {
-           numberFrequency[entry.num] += weightFactor * (index + 1); // More weight for recent numbers
-           if (entry.color === "red") colorFrequency.red += 1;
-           if (entry.color === "green") colorFrequency.green += 1;
-       });
+        data.flat().forEach((entry, index) => {
+            const weight = (index + 1) * weightFactor; // Increase weight for recent numbers
+            numberFrequency[entry.num] += weight;
+            if (entry.num % 2 === 0) colorFrequency.red += weight;
+            else colorFrequency.green += weight;
+        });
 
-       // Find the number with the highest weighted frequency
-       const maxFreq = Math.max(...numberFrequency);
-       const weightedNumbers = numberFrequency
-           .map((freq, num) => (freq === maxFreq ? num : null))
-           .filter((num) => num !== null);
+        // Find the most frequent number with highest weight
+        const maxFreq = Math.max(...numberFrequency);
+        const weightedNumbers = numberFrequency
+            .map((freq, num) => (freq === maxFreq ? num : null))
+            .filter((num) => num !== null);
 
-       // Predict number based on weighted probability
-       let predictedNumber =
-           weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
+        // Predict number based on weighted probability
+        const predictedNumber =
+            weightedNumbers[Math.floor(Math.random() * weightedNumbers.length)];
 
-       // Predict color based on color frequency trends
-       const predictedColor =
-           colorFrequency.red >= colorFrequency.green ? "red" : "green";
+        // Predict color based on past color frequency trends
+        const predictedColor =
+            colorFrequency.red >= colorFrequency.green ? "red" : "green";
 
-       return { number: predictedNumber, color: predictedColor };
-   };
-
+        return { number: predictedNumber, color: predictedColor };
+    };
 
     // Handle Enter Key Press
     const handleKeyPress = (e) => {
@@ -172,10 +173,10 @@ const ColorPredictionApp = () => {
                     <h3>Predicted Next Number:</h3>
                     <div
                         className={`grid-box ${
-                            prediction % 2 === 0 ? "red" : "green"
+                            prediction.color === "red" ? "red" : "green"
                         }`}
                     >
-                        {prediction}
+                        {prediction.number}
                     </div>
                 </div>
             )}
