@@ -1,0 +1,164 @@
+/* Container */
+
+.coinwave-container-main {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 30px 20px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 91, 175, 0.2);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #005baf;
+  text-align: center;
+}
+
+/* Page Title */
+.coinwave-page-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #005baf;
+  margin-bottom: 24px;
+}
+
+/* Buttons */
+.coinwave-button-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.coinwave-button-yellow,
+.coinwave-button-white {
+  font-size: 2.2rem;
+  padding: 12px 28px;
+  border: 2px solid #005baf;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.coinwave-button-yellow {
+  background: #ffee58;
+  color: #005baf;
+}
+
+.coinwave-button-yellow:hover {
+  background: #ffeb3b;
+}
+
+.coinwave-button-white {
+  background: #f1f1f1;
+  color: #005baf;
+}
+
+.coinwave-button-white:hover {
+  background: #ffffff;
+}
+
+/* Prediction */
+.coinwave-prediction-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #005baf;
+  margin-bottom: 10px;
+}
+
+.coinwave-prediction-area {
+  margin-bottom: 30px;
+  padding: 16px;
+  background-color: #e3f2fd;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #005baf;
+}
+
+.coinwave-predicted-color-value {
+  font-size: 1.6rem;
+  color: #004a94;
+}
+
+/* No prediction message */
+.coinwave-no-prediction-message {
+  color: #888888;
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Selections Title */
+.coinwave-selections-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #005baf;
+  margin-bottom: 12px;
+}
+
+.wave-no-selections-text {
+  color: #888888;
+  font-style: italic;
+  font-size: 1rem;
+}
+
+/* Table */
+.wave-table-element {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 auto;
+  font-size: 1.3rem;
+  border: 1px solid #ccc;
+}
+
+.wave-table-head {
+  background-color: #005baf;
+  color: white;
+}
+
+.wave-table-header {
+  padding: 10px;
+  font-weight: bold;
+  border-radius: 6px 6px 0 0;
+}
+
+.wave-table-body {
+  background-color: #f9f9f9;
+}
+
+.wave-table-row-data td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.wave-table-data-cell {
+  color: #005baf;
+  font-weight: 600;
+  text-align: center;
+}
+
+.wave-table-row-separator td {
+  height: 8px;
+  background-color: #e3f2fd;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .coinwave-container-main {
+    padding: 20px 14px;
+  }
+
+  .coinwave-button-yellow,
+  .coinwave-button-white {
+    padding: 10px 20px;
+    font-size: 1.8rem;
+  }
+
+  .coinwave-prediction-area {
+    font-size: 1.05rem;
+  }
+
+  .wave-table-element {
+    font-size: 1.1rem;
+  }
+}

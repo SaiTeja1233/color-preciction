@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import "./ColorPredictionApp.css"; // Import the CSS file
+import { useNavigate } from "react-router-dom";
 
 const ColorPredictionApp = () => {
     const [entries, setEntries] = useState([]);
@@ -7,6 +8,7 @@ const ColorPredictionApp = () => {
     const [inputPeriod, setInputPeriod] = useState("001");
     const [analysis, setAnalysis] = useState({});
     const [topPredictions, setTopPredictions] = useState([]);
+    const [predictionPreference, setPredictionPreference] = useState(null);
 
     const getColor = useCallback((number) => {
         return number === 0
@@ -63,77 +65,177 @@ const ColorPredictionApp = () => {
 
     const predictTopTwoNumbers = useCallback((chronologicalEntries) => {
         if (chronologicalEntries.length < 2) {
-            return [];
+            return { predictions: [], preference: null };
         }
 
-        const transitionMap = {};
-        const numberFrequency = {};
-        const seqLength = 3;
+        const colorTransitionMap = {};
+        const sizeTransitionMap = {};
+        const colorNumberMap = {};
+        const sizeNumberMap = {
+            Big: [],
+            Small: [],
+        };
+
+        chronologicalEntries.forEach((entry) => {
+            const color = entry.color.replace("🟣", "");
+            const size = entry.size;
+            const number = entry.number;
+
+            if (!colorNumberMap[color]) colorNumberMap[color] = {};
+            colorNumberMap[color][number] =
+                (colorNumberMap[color][number] || 0) + 1;
+
+            sizeNumberMap[size].push(number);
+        });
 
         for (let i = 0; i < chronologicalEntries.length - 1; i++) {
-            const curr = chronologicalEntries[i].number;
-            const next = chronologicalEntries[i + 1].number;
+            const currColor = chronologicalEntries[i].color.replace("🟣", "");
+            const nextColor = chronologicalEntries[i + 1].color.replace(
+                "🟣",
+                ""
+            );
+            const currSize = chronologicalEntries[i].size;
+            const nextSize = chronologicalEntries[i + 1].size;
 
-            if (!transitionMap[curr]) transitionMap[curr] = {};
-            transitionMap[curr][next] = (transitionMap[curr][next] || 0) + 1;
+            if (!colorTransitionMap[currColor])
+                colorTransitionMap[currColor] = {};
+            colorTransitionMap[currColor][nextColor] =
+                (colorTransitionMap[currColor][nextColor] || 0) + 1;
 
-            numberFrequency[curr] = (numberFrequency[curr] || 0) + 1;
+            if (!sizeTransitionMap[currSize]) sizeTransitionMap[currSize] = {};
+            sizeTransitionMap[currSize][nextSize] =
+                (sizeTransitionMap[currSize][nextSize] || 0) + 1;
         }
 
-        const lastNumber =
-            chronologicalEntries[chronologicalEntries.length - 1].number;
-        const possibleNext = transitionMap[lastNumber] || {};
-        const transitionPredictions = Object.entries(possibleNext)
-            .sort(([, countA], [, countB]) => countB - countA)
-            .map(([numStr]) => parseInt(numStr, 10));
+        const lastEntry = chronologicalEntries[chronologicalEntries.length - 1];
+        const lastColor = lastEntry.color.replace("🟣", "");
+        const lastSize = lastEntry.size;
 
-        const recentSequence = chronologicalEntries
-            .slice(-seqLength)
-            .map((e) => e.number)
-            .join(",");
-        const slidingMatches = {};
-
-        for (let i = 0; i < chronologicalEntries.length - seqLength; i++) {
-            const window = chronologicalEntries
-                .slice(i, i + seqLength)
-                .map((e) => e.number)
-                .join(",");
-            if (
-                window === recentSequence &&
-                i + seqLength < chronologicalEntries.length
-            ) {
-                const nextNum = chronologicalEntries[i + seqLength].number;
-                slidingMatches[nextNum] = (slidingMatches[nextNum] || 0) + 1;
+        // Analyze color sequence consistency
+        const colorTransitions = colorTransitionMap[lastColor] || {};
+        const totalColorTransitions = Object.values(colorTransitions).reduce(
+            (sum, count) => sum + count,
+            0
+        );
+        let mostLikelyNextColor = null;
+        let maxColorProbability = 0;
+        for (const color in colorTransitions) {
+            const probability =
+                totalColorTransitions > 0
+                    ? colorTransitions[color] / totalColorTransitions
+                    : 0;
+            if (probability > maxColorProbability) {
+                maxColorProbability = probability;
+                mostLikelyNextColor = color;
             }
         }
 
-        const sequencePredictions = Object.entries(slidingMatches)
-            .sort(([, countA], [, countB]) => countB - countA)
-            .map(([numStr]) => parseInt(numStr, 10));
+        // Analyze size sequence consistency
+        const sizeTransitions = sizeTransitionMap[lastSize] || {};
+        const totalSizeTransitions = Object.values(sizeTransitions).reduce(
+            (sum, count) => sum + count,
+            0
+        );
+        let mostLikelyNextSize = null;
+        let maxSizeProbability = 0;
+        for (const size in sizeTransitions) {
+            const probability =
+                totalSizeTransitions > 0
+                    ? sizeTransitions[size] / totalSizeTransitions
+                    : 0;
+            if (probability > maxSizeProbability) {
+                maxSizeProbability = probability;
+                mostLikelyNextSize = size;
+            }
+        }
 
-        const voteCount = {};
+        const colorPredictionWeight = maxColorProbability;
+        const sizePredictionWeight = maxSizeProbability;
+        const combinedPredictions = {};
+        let preference = null;
 
-        const addVotes = (nums, weight = 1) => {
-            nums.forEach((num) => {
-                voteCount[num] = (voteCount[num] || 0) + weight;
-            });
-        };
+        if (
+            colorPredictionWeight >= sizePredictionWeight &&
+            mostLikelyNextColor
+        ) {
+            preference = "color";
+            const colorFrequencies = colorNumberMap[mostLikelyNextColor] || {};
+            Object.entries(colorFrequencies)
+                .sort(([, countA], [, countB]) => countB - countA)
+                .slice(0, 3)
+                .forEach(([numberStr, count]) => {
+                    combinedPredictions[parseInt(numberStr, 10)] =
+                        (combinedPredictions[parseInt(numberStr, 10)] || 0) +
+                        colorPredictionWeight;
+                });
+        } else if (
+            sizePredictionWeight >= colorPredictionWeight &&
+            mostLikelyNextSize
+        ) {
+            preference = "size";
+            const sizeRelatedNumbers = sizeNumberMap[mostLikelyNextSize];
+            const sizeFrequency = sizeRelatedNumbers.reduce((acc, num) => {
+                acc[num] = (acc[num] || 0) + 1;
+                return acc;
+            }, {});
+            Object.entries(sizeFrequency)
+                .sort(([, countA], [, countB]) => countB - countA)
+                .slice(0, 3)
+                .forEach(([numberStr, count]) => {
+                    combinedPredictions[parseInt(numberStr, 10)] =
+                        (combinedPredictions[parseInt(numberStr, 10)] || 0) +
+                        sizePredictionWeight;
+                });
+        } else if (colorPredictionWeight > 0 || sizePredictionWeight > 0) {
+            preference = "both";
+            if (mostLikelyNextColor) {
+                const colorFrequencies =
+                    colorNumberMap[mostLikelyNextColor] || {};
+                Object.entries(colorFrequencies)
+                    .sort(([, countA], [, countB]) => countB - countA)
+                    .slice(0, 2)
+                    .forEach(([numberStr, count]) => {
+                        combinedPredictions[parseInt(numberStr, 10)] =
+                            (combinedPredictions[parseInt(numberStr, 10)] ||
+                                0) + colorPredictionWeight;
+                    });
+            }
+            if (mostLikelyNextSize) {
+                const sizeRelatedNumbers = sizeNumberMap[mostLikelyNextSize];
+                const sizeFrequency = sizeRelatedNumbers.reduce((acc, num) => {
+                    acc[num] = (acc[num] || 0) + 1;
+                    return acc;
+                }, {});
+                Object.entries(sizeFrequency)
+                    .sort(([, countA], [, countB]) => countB - countA)
+                    .slice(0, 2)
+                    .forEach(([numberStr, count]) => {
+                        combinedPredictions[parseInt(numberStr, 10)] =
+                            (combinedPredictions[parseInt(numberStr, 10)] ||
+                                0) + sizePredictionWeight;
+                    });
+            }
+        } else {
+            preference = null;
+            // Fallback to most frequent numbers if no strong color or size pattern
+            const sortedNumberFrequency = Object.entries(
+                chronologicalEntries.reduce((acc, entry) => {
+                    acc[entry.number] = (acc[entry.number] || 0) + 1;
+                    return acc;
+                }, {})
+            )
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 2)
+                .map(([numStr]) => parseInt(numStr, 10));
+            return { predictions: sortedNumberFrequency, preference: null };
+        }
 
-        addVotes(transitionPredictions, 3);
-        addVotes(sequencePredictions, 2);
-
-        const topFrequent = Object.entries(numberFrequency)
-            .sort(([, countA], [, countB]) => countB - countA)
-            .slice(0, 3)
-            .map(([numStr]) => parseInt(numStr, 10));
-        addVotes(topFrequent, 1);
-
-        const sortedVotes = Object.entries(voteCount)
-            .sort(([, countA], [, countB]) => countB - countA)
+        const sortedVotes = Object.entries(combinedPredictions)
+            .sort(([, weightA], [, weightB]) => weightB - weightA)
             .slice(0, 2)
-            .map(([numStr]) => parseInt(numStr, 10));
+            .map(([numberStr]) => parseInt(numberStr, 10));
 
-        return sortedVotes;
+        return { predictions: sortedVotes, preference };
     }, []);
 
     const analyzeEntries = useCallback(
@@ -219,13 +321,15 @@ const ColorPredictionApp = () => {
         if (entries.length > 1) {
             analyzeEntries(entries);
             const chronologicalEntriesForPrediction = [...entries];
-            const predictions = predictTopTwoNumbers(
+            const { predictions, preference } = predictTopTwoNumbers(
                 chronologicalEntriesForPrediction
             );
             setTopPredictions(predictions);
+            setPredictionPreference(preference);
         } else {
             setAnalysis({});
             setTopPredictions([]);
+            setPredictionPreference(null);
         }
     }, [entries, analyzeEntries, predictTopTwoNumbers]);
 
@@ -259,105 +363,151 @@ const ColorPredictionApp = () => {
                             {analysis[number].sizeSequence || "N/A"}
                         </span>
                     </p>
-                    <p>
-                        Predicted Next Color:{" "}
-                        <span
-                            className={`predicted-color ${analysis[number].predictedNextColor}`}
-                        >
-                            {analysis[number].predictedNextColor || "N/A"}
-                        </span>
-                    </p>
-                    <p>
-                        Predicted Next Size:{" "}
-                        <span
-                            className={`predicted-size ${analysis[number].predictedNextSize}`}
-                        >
-                            {analysis[number].predictedNextSize || "N/A"}
-                        </span>
-                    </p>
+                    {predictionPreference === "color" ||
+                    predictionPreference === "both" ? (
+                        <p>
+                            Predicted Next Color:{" "}
+                            <span
+                                className={`predicted-color ${analysis[number].predictedNextColor}`}
+                            >
+                                {analysis[number].predictedNextColor || "N/A"}
+                            </span>
+                        </p>
+                    ) : null}
+                    {predictionPreference === "size" ||
+                    predictionPreference === "both" ? (
+                        <p>
+                            Predicted Next Size:{" "}
+                            <span
+                                className={`predicted-size ${analysis[number].predictedNextSize}`}
+                            >
+                                {analysis[number].predictedNextSize || "N/A"}
+                            </span>
+                        </p>
+                    ) : null}
+                    {predictionPreference === null && (
+                        <>
+                            <p>
+                                Predicted Next Color:{" "}
+                                <span
+                                    className={`predicted-color ${analysis[number].predictedNextColor}`}
+                                >
+                                    {analysis[number].predictedNextColor ||
+                                        "N/A"}
+                                </span>
+                            </p>
+                            <p>
+                                Predicted Next Size:{" "}
+                                <span
+                                    className={`predicted-size ${analysis[number].predictedNextSize}`}
+                                >
+                                    {analysis[number].predictedNextSize ||
+                                        "N/A"}
+                                </span>
+                            </p>
+                        </>
+                    )}
                 </div>
             ))}
         </div>
     );
+    const navigate = useNavigate();
+    function backtoHome() {
+        navigate("/");
+    }
 
     return (
-        <div className="container">
-            <h2 className="app-title">Color Prediction App</h2>
+        <div className="mainColorContainer">
+            <div className="container">
+                <button className="BckHome-btn" onClick={() => backtoHome()}>Back to home</button>
+                <h2 className="app-title">Color Prediction App</h2>
 
-            <div className="input-section">
-                <input
-                    type="text"
-                    placeholder="Period"
-                    value={inputPeriod}
-                    onChange={(e) => setInputPeriod(e.target.value)}
-                    className="input-field"
-                />
-                <input
-                    type="text"
-                    placeholder="Numbers (e.g., 1 2 5)"
-                    value={inputNumbers}
-                    onChange={(e) => {
-                        let cleaned = e.target.value.replace(/\D/g, "");
-                        if (cleaned.length > 30) cleaned = cleaned.slice(0, 30);
-                        const spaced = cleaned.split("").join(" ");
-                        setInputNumbers(spaced);
-                    }}
-                    className="input-field"
-                />
-                <button onClick={handleAddEntries} className="add-button">
-                    Add Entries
-                </button>
-            </div>
-
-            {topPredictions.length > 0 && (
-                <div className="prediction-section">
-                    <h3>Top Predictions (Next Number):</h3>
-                    <p className="predictions">
-                        {topPredictions.map((pred, index) => (
-                            <span key={index} className="predicted-number">
-                                {pred}
-                                {index < topPredictions.length - 1 ? ", " : ""}
-                            </span>
-                        ))}
-                    </p>
-                    <p className="prediction-info">
-                        Based on transition probabilities and sequence matching.
-                    </p>
+                <div className="input-section">
+                    <input
+                        type="text"
+                        placeholder="Period"
+                        value={inputPeriod}
+                        onChange={(e) => setInputPeriod(e.target.value)}
+                        className="input-field"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Numbers (e.g., 1 2 5)"
+                        value={inputNumbers}
+                        onChange={(e) => {
+                            let cleaned = e.target.value.replace(/\D/g, "");
+                            if (cleaned.length > 30)
+                                cleaned = cleaned.slice(0, 30);
+                            const spaced = cleaned.split("").join(" ");
+                            setInputNumbers(spaced);
+                        }}
+                        className="input-field"
+                    />
+                    <button onClick={handleAddEntries} className="add-button">
+                        Add Entries
+                    </button>
                 </div>
-            )}
 
-            <div className="entries-table-container">
-                <h3>Recent Entries</h3>
-                <table className="entries-table">
-                    <thead>
-                        <tr>
-                            <th>Period</th>
-                            <th>Number</th>
-                            <th>Color</th>
-                            <th>Size</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {[...entries].reverse().map((entry, index) => (
-                            <tr key={index}>
-                                <td>{entry.period}</td>
-                                <td>{entry.number}</td>
-                                <td
-                                    className={`color-cell ${entry.color.replace(
-                                        "🟣",
-                                        ""
-                                    )}`}
-                                >
-                                    {entry.color}
-                                </td>
-                                <td>{entry.size}</td>
+                {topPredictions.length > 0 && (
+                    <div className="prediction-section">
+                        <h3>Top Predictions (Next Number):</h3>
+                        <p className="predictions">
+                            {topPredictions.map((pred, index) => (
+                                <span key={index} className="predicted-number">
+                                    {pred}
+                                    {index < topPredictions.length - 1
+                                        ? " "
+                                        : ""}
+                                </span>
+                            ))}
+                        </p>
+                        <p className="prediction-info">
+                            Based on patterns where{" "}
+                            <b>
+                                {predictionPreference === "color"
+                                    ? "color sequences"
+                                    : predictionPreference === "size"
+                                    ? "size patterns"
+                                    : "both color and size"}
+                            </b>{" "}
+                            showed more consistency.
+                        </p>
+                    </div>
+                )}
+
+                <div className="entries-table-container">
+                    <h3>Recent Entries</h3>
+                    <table className="entries-table">
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th>Number</th>
+                                <th>Color</th>
+                                <th>Size</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {[...entries].reverse().map((entry, index) => (
+                                <tr key={index}>
+                                    <td>{entry.period}</td>
+                                    <td>{entry.number}</td>
+                                    <td
+                                        className={`color-cell ${entry.color.replace(
+                                            "🟣",
+                                            ""
+                                        )}`}
+                                    >
+                                        {entry.color}
+                                    </td>
+                                    <td>{entry.size}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
-            {Object.keys(analysis).length > 0 && renderAnalysis()}
+                {Object.keys(analysis).length > 0 && renderAnalysis()}
+            </div>
         </div>
     );
 };

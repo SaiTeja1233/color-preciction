@@ -1,0 +1,47 @@
+/* Homepage.css */
+
+.homepage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh; /* Ensure the content takes at least the full viewport height */
+    background-color: #e0f7fa; /* Light blue background */
+    color: #0d47a1; /* Dark blue text */
+    padding: 20px;
+    font-family: sans-serif;
+  }
+  
+  .homepage h1 {
+    font-size: 2.5em;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  
+  .homepage button {
+    padding: 15px 30px;
+    font-size: 1em;
+    border: 2px solid #0d47a1; /* Dark blue border */
+    background-color: #fff; /* White background */
+    color: #0d47a1; /* Dark blue text */
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 10px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  .homepage button:hover {
+    background-color: #0d47a1; /* Dark blue background on hover */
+    color: #fff; /* White text on hover */
+    border-color: #fff; /* White border on hover */
+  }
+  
+  /* Optional: Add some subtle shadow for depth */
+  .homepage button {
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .homepage button:active {
+    box-shadow: 0px 0px 0px rgba(0, 0, 0, 0.1); /* Remove shadow on click */
+    transform: translateY(1px); /* Slight downward movement on click */
+  }
