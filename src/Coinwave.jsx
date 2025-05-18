@@ -1,103 +1,157 @@
 import React, { useState, useEffect, useCallback } from "react";
 import "./Coinwave.css";
 import { useNavigate } from "react-router-dom";
+
 function Coinwave() {
     const [waveSelections, setWaveSelections] = useState([]);
     const [wavePrediction, setWavePrediction] = useState(null);
 
     const handleButtonClick = (color) => {
-        setWaveSelections(
-            (prevWaveSelections) => {
-                const newWaveSelections = [color, ...prevWaveSelections];
-                if (newWaveSelections.length > 17) {
-                    newWaveSelections.pop();
-                }
-                return newWaveSelections;
-            },
-            () => {
-                // Calculate prediction after the state has updated
-                if (waveSelections.length >= 3) {
-                    // Prediction needs at least 3 entries for pattern detection
-                    calculateWavePrediction();
-                } else {
-                    setWavePrediction(null);
-                }
-            }
-        );
+        setWaveSelections((prev) => {
+            const newSelections = [color, ...prev];
+            if (newSelections.length > 30) newSelections.pop();
+            return newSelections;
+        });
     };
 
-    const findRepeatingPattern = useCallback((arr) => {
-        for (let len = 1; len <= Math.floor(arr.length / 2); len++) {
-            const pattern = arr.slice(0, len);
-            let isRepeating = true;
-            for (let i = len; i < arr.length; i++) {
-                if (arr[i] !== pattern[i % len]) {
-                    isRepeating = false;
-                    break;
-                }
-            }
-            if (isRepeating && arr.length >= 2 * len) {
-                return pattern[arr.length % len];
-            }
-        }
-        return null;
-    }, []); // findRepeatingPattern has no dependencies
+    const getOppositeColor = (color) => (color === "🟡" ? "⚪" : "🟡");
 
     const calculateWavePrediction = useCallback(() => {
         const n = waveSelections.length;
-        if (n < 3) {
+        if (n < 20) {
             setWavePrediction(null);
             return;
         }
 
-        // Check for repeating pattern in the most recent history (up to 10 entries)
-        const recentHistoryLength = Math.min(n, 10);
-        const recentHistory = waveSelections.slice(0, recentHistoryLength);
-        const patternPrediction = findRepeatingPattern(recentHistory);
+        const data = waveSelections;
+        const predictions = [];
 
-        if (patternPrediction) {
-            setWavePrediction(patternPrediction);
-            return;
+        // Rule 1: Last 3 same → predict opposite
+        if (data[0] === data[1] && data[1] === data[2]) {
+            predictions.push(getOppositeColor(data[0]));
         }
 
-        // If no clear repeating pattern in recent history, try to find a pattern of length 2
-        if (n >= 4) {
-            const lastTwo = waveSelections.slice(0, 2);
-            if (
-                waveSelections[2] === lastTwo[0] &&
-                waveSelections[3] === lastTwo[1]
-            ) {
-                setWavePrediction(lastTwo[0]); // Predict the first of the repeating pair
-                return;
-            }
+        // Rule 2: Alternating pattern (🟡⚪🟡⚪) → continue pattern
+        if (
+            data.length >= 4 &&
+            data[0] !== data[1] &&
+            data[0] === data[2] &&
+            data[1] === data[3]
+        ) {
+            predictions.push(data[0]);
         }
 
-        // If no simple repeating pattern, consider if the last was the opposite of the one before
-        if (n >= 2 && waveSelections[0] !== waveSelections[1]) {
-            setWavePrediction(waveSelections[1]);
-            return;
+        // Rule 3: Majority of last 5 → predict minority
+        const last5 = data.slice(0, 5);
+        const yellow5 = last5.filter((c) => c === "🟡").length;
+        const white5 = 5 - yellow5;
+        if (yellow5 !== white5) {
+            predictions.push(yellow5 > white5 ? "⚪" : "🟡");
         }
 
-        // As a last resort, predict based on overall frequency
-        const yellowCount = waveSelections.filter((c) => c === "🟡").length;
-        const whiteCount = n - yellowCount;
-
-        if (yellowCount > whiteCount) {
-            setWavePrediction("🟡");
-        } else if (whiteCount > yellowCount) {
-            setWavePrediction("⚪");
-        } else {
-            setWavePrediction(Math.random() < 0.5 ? "🟡" : "⚪");
+        // Rule 4: Majority of last 10 → predict minority
+        const last10 = data.slice(0, 10);
+        const yellow10 = last10.filter((c) => c === "🟡").length;
+        const white10 = 10 - yellow10;
+        if (yellow10 !== white10) {
+            predictions.push(yellow10 > white10 ? "⚪" : "🟡");
         }
-    }, [waveSelections, findRepeatingPattern]);
+
+        // Rule 5: Check for repeated pair (🟡🟡⚪⚪🟡🟡...) → predict next in pair
+        if (
+            data.length >= 6 &&
+            data[0] === data[1] &&
+            data[2] === data[3] &&
+            data[4] === data[5] &&
+            data[0] === data[4]
+        ) {
+            predictions.push(data[0]);
+        }
+
+        // Rule 6: Last 5 are alternating → continue alternation
+        if (
+            data.length >= 5 &&
+            data[0] !== data[1] &&
+            data[1] !== data[2] &&
+            data[2] !== data[3] &&
+            data[3] !== data[4]
+        ) {
+            predictions.push(data[0]);
+        }
+
+        // Rule 7: 3 whites in last 4 → predict yellow
+        const last4 = data.slice(0, 4);
+        const white4 = last4.filter((c) => c === "⚪").length;
+        if (white4 >= 3) {
+            predictions.push("🟡");
+        }
+
+        // Rule 8: 3 yellows in last 4 → predict white
+        const yellow4 = last4.filter((c) => c === "🟡").length;
+        if (yellow4 >= 3) {
+            predictions.push("⚪");
+        }
+
+        // Rule 9: Repeating triple (🟡⚪🟡⚪🟡...) → predict pattern
+        if (
+            data.length >= 6 &&
+            data[0] === data[2] &&
+            data[2] === data[4] &&
+            data[1] === data[3] &&
+            data[3] === data[5]
+        ) {
+            predictions.push(data[0]);
+        }
+
+        // Rule 10: Last 2 pairs are same (🟡🟡⚪⚪) → predict opposite pair
+        if (
+            data.length >= 4 &&
+            data[0] === data[1] &&
+            data[2] === data[3] &&
+            data[0] !== data[2]
+        ) {
+            predictions.push(getOppositeColor(data[0]));
+        }
+
+        // Rule 11: Count last 20 colors → predict least frequent
+        const last20 = data.slice(0, 20);
+        const yellow20 = last20.filter((c) => c === "🟡").length;
+        const white20 = 20 - yellow20;
+        predictions.push(
+            yellow20 > white20 ? "⚪" : yellow20 < white20 ? "🟡" : null
+        );
+
+        // Rule 12: Random fallback if no clear majority
+        if (predictions.length === 0 || predictions.every((p) => p === null)) {
+            predictions.push(Math.random() < 0.5 ? "🟡" : "⚪");
+        }
+
+        // Count votes
+        const finalCount = predictions.reduce((acc, c) => {
+            if (!c) return acc;
+            acc[c] = (acc[c] || 0) + 1;
+            return acc;
+        }, {});
+
+        const finalColor =
+            (finalCount["🟡"] || 0) > (finalCount["⚪"] || 0)
+                ? "🟡"
+                : (finalCount["⚪"] || 0) > (finalCount["🟡"] || 0)
+                ? "⚪"
+                : Math.random() < 0.5
+                ? "🟡"
+                : "⚪";
+
+        setWavePrediction(finalColor);
+    }, [waveSelections]);
 
     useEffect(() => {
-        if (waveSelections.length >= 3) {
+        if (waveSelections.length >= 20) {
             calculateWavePrediction();
         } else {
             setWavePrediction(null);
         }
-    }, [waveSelections, calculateWavePrediction]); // Now include calculatePrediction
+    }, [waveSelections, calculateWavePrediction]);
 
     const renderWaveTable = () => {
         if (waveSelections.length === 0) {
@@ -159,6 +213,7 @@ function Coinwave() {
             </table>
         );
     };
+
     const navigate = useNavigate();
     function backtoHome() {
         navigate("/");
@@ -166,7 +221,7 @@ function Coinwave() {
 
     return (
         <div className="coinwave-container-main">
-            <button className="BckHome-btn" onClick={() => backtoHome()}>
+            <button className="BckHome-btn" onClick={backtoHome}>
                 Back to home
             </button>
             <h2 className="coinwave-page-title">Coinwave</h2>
@@ -196,7 +251,7 @@ function Coinwave() {
                     </p>
                 ) : (
                     <p className="coinwave-no-prediction-message">
-                        Not enough data for prediction.
+                        To get prediction enter at least 20 selections.
                     </p>
                 )}
             </div>
