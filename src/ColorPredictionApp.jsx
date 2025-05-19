@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./ColorPredictionApp.css";
 import { useNavigate } from "react-router-dom";
 
@@ -312,11 +312,6 @@ const ColorPredictionApp = () => {
         return { predictions: topPredictions, preference };
     }, []);
 
-    const { preference: predictionPreferenceMemo } = useMemo(
-        () => predictTopTwoNumbers(entries),
-        [entries, predictTopTwoNumbers]
-    );
-
     const analyzeEntries = useCallback((currentEntries) => {
         const numberAnalysis = {};
         const colors = [];
@@ -549,10 +544,9 @@ const ColorPredictionApp = () => {
                                                     : "darkgreen",
                                                 padding: "5px 10px",
                                                 borderRadius: "5px",
-                                                fontSize: "16px",
+                                                fontSize: "19px",
                                                 fontWeight: "bold",
-                                                marginRight: "5px",
-                                                display: "inline-block",
+                                               
                                             }}
                                         >
                                             {number}

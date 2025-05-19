@@ -19,9 +19,7 @@
     flex-direction: column;
     margin-top: 20px;
 }
-.predictedNum{
-    display: flex;
-}
+
 
 .BckHome-btn:active {
     transform: scale(0.96);
