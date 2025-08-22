@@ -1,29 +1,168 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import "./ColorPredictionApp.css";
 import { useNavigate } from "react-router-dom";
 
-const MAX_ENTRIES = 50;
-const LAST_ENTRY_RULE_BOOST = 0.2;
-const COMBINED_PREDICTION_WEIGHT_FACTOR = 0.5;
-const STATISTICAL_PREDICTION_BASE_WEIGHT = 0.2;
-const PREDICTION_COUNT = 2;
+// Constants for game logic and display
+const MAX_ENTRIES = 10;
 const DISPLAY_COLORS_PER_ROW = 5;
 
+// Helper function to determine the color of a number
 const getColor = (number) => {
     if (number === 0) return "🔴🟣";
     if (number === 5) return "🟢🟣";
     return number % 2 === 0 ? "🔴" : "🟢";
 };
 
+// Helper function to determine the size of a number
 const getSize = (number) => (number >= 5 ? "Big" : "Small");
 
+// Custom prediction logic functions from OneMinWingo
+const getHumanPrediction = (historyData) => {
+    if (historyData.length < 2) {
+        return { color: "Green", size: "Big" };
+    }
+
+    const lastTwoColors = historyData
+        .slice(0, 2)
+        .map((item) =>
+            getColor(item.number).includes("🔴") ? "Red" : "Green"
+        );
+    const lastTwoSizes = historyData
+        .slice(0, 2)
+        .map((item) => getSize(item.number));
+
+    let predictedColor;
+    if (lastTwoColors[0] === lastTwoColors[1]) {
+        predictedColor = lastTwoColors[0] === "Red" ? "Green" : "Red";
+    } else {
+        predictedColor = lastTwoColors[1] === "Red" ? "Green" : "Red";
+    }
+
+    let predictedSize;
+    if (lastTwoSizes[0] === lastTwoSizes[1]) {
+        predictedSize = lastTwoSizes[0] === "Big" ? "Small" : "Big";
+    } else {
+        predictedSize = lastTwoSizes[1] === "Big" ? "Small" : "Big";
+    }
+
+    return { color: predictedColor, size: predictedSize };
+};
+
+const getRobotPrediction = (historyData) => {
+    if (historyData.length < 10) {
+        return { color: "Green", size: "Big" };
+    }
+
+    const recentHistory = historyData.slice(0, 10);
+    const colorCounts = recentHistory.reduce((acc, item) => {
+        const color = getColor(item.number).includes("🔴") ? "Red" : "Green";
+        acc[color] = (acc[color] || 0) + 1;
+        return acc;
+    }, {});
+
+    const sizeCounts = recentHistory.reduce((acc, item) => {
+        const size = getSize(item.number);
+        acc[size] = (acc[size] || 0) + 1;
+        return acc;
+    }, {});
+
+    const predictedColor =
+        colorCounts["Red"] <= colorCounts["Green"] ? "Red" : "Green";
+    const predictedSize =
+        sizeCounts["Big"] <= sizeCounts["Small"] ? "Big" : "Small";
+
+    return { color: predictedColor, size: predictedSize };
+};
+
+const getNumbersToDisplay = (predictedColor, predictedSize) => {
+    const matchingNumbers = [];
+
+    let colorNumbers;
+    if (predictedColor === "Red") {
+        colorNumbers = [0, 2, 4, 6, 8];
+    } else if (predictedColor === "Green") {
+        colorNumbers = [1, 3, 5, 7, 9];
+    } else {
+        colorNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    }
+
+    const sizeNumbers =
+        predictedSize === "Big" ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4];
+
+    // Find the intersection of both sets
+    for (const num of colorNumbers) {
+        if (sizeNumbers.includes(num)) {
+            matchingNumbers.push(num);
+        }
+    }
+
+    const uniqueNumbers = new Set();
+    while (uniqueNumbers.size < 2 && matchingNumbers.length > 0) {
+        const randomIndex = Math.floor(Math.random() * matchingNumbers.length);
+        uniqueNumbers.add(matchingNumbers[randomIndex]);
+    }
+
+    return Array.from(uniqueNumbers);
+};
+
+// New function to determine which prediction is more accurate
+const getBestPrediction = (history) => {
+    if (history.length === 0) return "Green"; // Default
+
+    // Check accuracy of the last 5 entries
+    const recentHistory = history.slice(0, 5);
+
+    let humanColorWins = 0;
+    let humanSizeWins = 0;
+
+    let robotColorWins = 0;
+    let robotSizeWins = 0;
+
+    // Check against history to determine the best prediction mode
+    for (let i = 0; i < recentHistory.length; i++) {
+        const subHistory = history.slice(i + 1);
+        if (subHistory.length > 0) {
+            // Human prediction check
+            const humanPred = getHumanPrediction(subHistory);
+            const actualColor = getColor(recentHistory[i].number).includes("🔴")
+                ? "Red"
+                : "Green";
+            const actualSize = getSize(recentHistory[i].number);
+            if (humanPred.color === actualColor) humanColorWins++;
+            if (humanPred.size === actualSize) humanSizeWins++;
+
+            // Robot prediction check
+            const robotPred = getRobotPrediction(subHistory);
+            if (robotPred.color === actualColor) robotColorWins++;
+            if (robotPred.size === actualSize) robotSizeWins++;
+        }
+    }
+
+    // Compare and return the best overall prediction
+    if (humanColorWins + humanSizeWins > robotColorWins + robotSizeWins) {
+        if (humanColorWins > humanSizeWins) {
+            return getHumanPrediction(history).color;
+        } else {
+            return getHumanPrediction(history).size;
+        }
+    } else {
+        if (robotColorWins > robotSizeWins) {
+            return getRobotPrediction(history).color;
+        } else {
+            return getRobotPrediction(history).size;
+        }
+    }
+};
+
+// Main React component
 const ColorPredictionApp = () => {
     const [entries, setEntries] = useState([]);
     const [inputNumbers, setInputNumbers] = useState("");
     const [inputPeriod, setInputPeriod] = useState("001");
-    const [analysis, setAnalysis] = useState({});
-    const [predictions, setPredictions] = useState([]);
-    const [predictionPreference, setPredictionPreference] = useState(null);
+    const [showPredictionCard, setShowPredictionCard] = useState(false);
+    const [predictedResult, setPredictedResult] = useState(null);
+    const [predictedNumbers, setPredictedNumbers] = useState([]);
+
     const navigate = useNavigate();
 
     const handleAddEntries = () => {
@@ -38,24 +177,26 @@ const ColorPredictionApp = () => {
             const currentPeriod = parseInt(inputPeriod, 10) || 0;
             const periodLength = inputPeriod.length;
 
-            const newEntries = numbersArray.map((number, index) => {
-                const color = getColor(number);
-                const size = getSize(number);
-                const period = String(currentPeriod + index).padStart(
-                    periodLength,
-                    "0"
-                );
-                return {
-                    period,
-                    number,
-                    color,
-                    size,
-                    id: `${period}-${number}`,
-                };
-            });
+            const newEntries = numbersArray
+                .map((number, index) => {
+                    const color = getColor(number);
+                    const size = getSize(number);
+                    const period = String(currentPeriod + index).padStart(
+                        periodLength,
+                        "0"
+                    );
+                    return {
+                        period,
+                        number,
+                        color,
+                        size,
+                        id: `${period}-${number}`,
+                    };
+                })
+                .reverse();
 
             setEntries((prevEntries) =>
-                [...prevEntries, ...newEntries].slice(-MAX_ENTRIES)
+                [...newEntries, ...prevEntries].slice(0, MAX_ENTRIES)
             );
             setInputPeriod(
                 String(currentPeriod + numbersArray.length).padStart(
@@ -64,411 +205,51 @@ const ColorPredictionApp = () => {
                 )
             );
             setInputNumbers("");
+
+            // Clear prediction after adding a new entry
+            setShowPredictionCard(false);
+            setPredictedResult(null);
+            setPredictedNumbers([]);
         }
     };
 
-    const predictTopTwoNumbers = useCallback((chronologicalEntries) => {
-        if (chronologicalEntries.length < MAX_ENTRIES) {
-            return { predictions: [], preference: null };
+    const handlePredict = () => {
+        if (entries.length < 2) {
+            alert("Please add at least 2 entries for an accurate prediction!");
+            return;
         }
 
-        const last50Entries = chronologicalEntries.slice(-MAX_ENTRIES);
-        const last10Colors = last50Entries
-            .slice(-10)
-            .map((entry) => entry.color.replace("🟣", ""));
+        const bestPrediction = getBestPrediction(entries);
+        let predictionData;
 
-        const colorTransitionMap = {};
-        const sizeTransitionMap = {};
-        const colorNumberMap = {};
-        const sizeNumberMap = { Big: [], Small: [] };
-
-        last50Entries.forEach((entry) => {
-            const color = entry.color.replace("🟣", "");
-            const size = entry.size;
-            const number = entry.number;
-
-            colorNumberMap[color] = colorNumberMap[color] || {};
-            colorNumberMap[color][number] =
-                (colorNumberMap[color][number] || 0) + 1;
-            sizeNumberMap[size].push(number);
-        });
-
-        for (let i = 0; i < last50Entries.length - 1; i++) {
-            const currColor = last50Entries[i].color.replace("🟣", "");
-            const nextColor = last50Entries[i + 1].color.replace("🟣", "");
-            const currSize = last50Entries[i].size;
-            const nextSize = last50Entries[i + 1].size;
-
-            colorTransitionMap[currColor] = colorTransitionMap[currColor] || {};
-            colorTransitionMap[currColor][nextColor] =
-                (colorTransitionMap[currColor][nextColor] || 0) + 1;
-
-            sizeTransitionMap[currSize] = sizeTransitionMap[currSize] || {};
-            sizeTransitionMap[currSize][nextSize] =
-                (sizeTransitionMap[currSize][nextSize] || 0) + 1;
-        }
-
-        const lastEntry = last50Entries[last50Entries.length - 1];
-        const lastColor = lastEntry.color.replace("🟣", "");
-        const lastSize = lastEntry.size;
-
-        const getColorProbability = (transitions, lastValue) => {
-            const nextTransitions = transitions[lastValue] || {};
-            const totalTransitions = Object.values(nextTransitions).reduce(
-                (sum, count) => sum + count,
-                0
-            );
-            let mostLikelyNext = null;
-            let maxProbability = 0;
-            const MIN_PROBABILITY_THRESHOLD = 0.1;
-
-            for (const key in nextTransitions) {
-                const probability =
-                    totalTransitions > 0
-                        ? nextTransitions[key] / totalTransitions
-                        : 0;
-                if (
-                    probability > maxProbability &&
-                    probability >= MIN_PROBABILITY_THRESHOLD
-                ) {
-                    maxProbability = probability;
-                    mostLikelyNext = key;
-                }
-            }
-            return {
-                mostLikely: mostLikelyNext,
-                probability: maxProbability,
-            };
-        };
-
-        const {
-            mostLikely: mostLikelyNextColor,
-            probability: colorProbability,
-        } = getColorProbability(colorTransitionMap, lastColor);
-        const { mostLikely: mostLikelyNextSize, probability: sizeProbability } =
-            getColorProbability(sizeTransitionMap, lastSize);
-
-        const combinedPredictions = {};
-        let preference = null;
-
-        // New logic: Analyze last 10 colors
-        const last10ColorCounts = last10Colors.reduce((acc, color) => {
-            acc[color] = (acc[color] || 0) + 1;
-            return acc;
-        }, {});
-
-        let mostFrequentLast10Color = null;
-        let maxLast10ColorCount = 0;
-
-        for (const color in last10ColorCounts) {
-            if (last10ColorCounts[color] > maxLast10ColorCount) {
-                maxLast10ColorCount = last10ColorCounts[color];
-                mostFrequentLast10Color = color;
-            }
-        }
-
-        let reversedPredictedColorNumber = null;
-        if (mostFrequentLast10Color === "🔴") {
-            reversedPredictedColorNumber = [1, 3, 5, 7, 9][
-                Math.floor(Math.random() * 5)
-            ]; // Map to a random green number
-        } else if (mostFrequentLast10Color === "🟢") {
-            reversedPredictedColorNumber = [0, 2, 4, 6, 8][
-                Math.floor(Math.random() * 5)
-            ]; // Map to a random red number
-        }
-
-        if (reversedPredictedColorNumber !== null) {
-            combinedPredictions[reversedPredictedColorNumber] =
-                (combinedPredictions[reversedPredictedColorNumber] || 0) + 1.0; // Give it a high weight
-        }
-
-        const applyLastEntryRule = (predictions) => {
-            const boostedPredictions = { ...predictions };
-            const lastIsSmall = lastSize === "Small";
-            const lastIsBig = lastSize === "Big";
-            const lastIsGreen = lastColor === "🟢";
-            const lastIsRed = lastColor === "🔴";
-
-            const evenNumbers = [0, 2, 4, 6, 8];
-            const oddNumbers = [1, 3, 5, 7, 9];
-            const smallNumbers = [0, 1, 2, 3, 4];
-            const bigNumbers = [5, 6, 7, 8, 9];
-
-            const ruleBasedPredictions = new Set();
-
-            if (lastIsSmall)
-                smallNumbers
-                    .filter((n) => evenNumbers.includes(n))
-                    .forEach((n) => ruleBasedPredictions.add(n));
-            if (lastIsBig)
-                bigNumbers.forEach((n) => ruleBasedPredictions.add(n));
-            if (lastIsGreen)
-                oddNumbers.forEach((n) => ruleBasedPredictions.add(n));
-            if (lastIsRed)
-                evenNumbers.forEach((n) => ruleBasedPredictions.add(n));
-
-            ruleBasedPredictions.forEach((num) => {
-                boostedPredictions[num] =
-                    (boostedPredictions[num] || 0) + LAST_ENTRY_RULE_BOOST;
-            });
-
-            return boostedPredictions;
-        };
-
-        if (colorProbability >= sizeProbability && mostLikelyNextColor) {
-            preference = "color";
-            const colorFrequencies = colorNumberMap[mostLikelyNextColor] || {};
-            Object.entries(colorFrequencies)
-                .sort(([, countA], [, countB]) => countB - countA)
-                .slice(0, 3)
-                .forEach(([numberStr]) => {
-                    combinedPredictions[parseInt(numberStr, 10)] =
-                        (combinedPredictions[parseInt(numberStr, 10)] || 0) +
-                        colorProbability;
-                });
-        } else if (sizeProbability >= colorProbability && mostLikelyNextSize) {
-            preference = "size";
-            const sizeRelatedNumbers = sizeNumberMap[mostLikelyNextSize];
-            const sizeFrequency = sizeRelatedNumbers.reduce((acc, num) => {
-                acc[num] = (acc[num] || 0) + 1;
-                return acc;
-            }, {});
-            Object.entries(sizeFrequency)
-                .sort(([, countA], [, countB]) => countB - countA)
-                .slice(0, 3)
-                .forEach(([numberStr]) => {
-                    combinedPredictions[parseInt(numberStr, 10)] =
-                        (combinedPredictions[parseInt(numberStr, 10)] || 0) +
-                        sizeProbability;
-                });
-        } else if (colorProbability > 0 || sizeProbability > 0) {
-            preference = "both";
-            if (mostLikelyNextColor) {
-                const colorFrequencies =
-                    colorNumberMap[mostLikelyNextColor] || {};
-                Object.entries(colorFrequencies)
-                    .sort(([, countA], [, countB]) => countB - countA)
-                    .slice(0, 2)
-                    .forEach(([numberStr]) => {
-                        combinedPredictions[parseInt(numberStr, 10)] =
-                            (combinedPredictions[parseInt(numberStr, 10)] ||
-                                0) +
-                            colorProbability *
-                                COMBINED_PREDICTION_WEIGHT_FACTOR;
-                    });
-            }
-            if (mostLikelyNextSize) {
-                const sizeRelatedNumbers = sizeNumberMap[mostLikelyNextSize];
-                const sizeFrequency = sizeRelatedNumbers.reduce((acc, num) => {
-                    acc[num] = (acc[num] || 0) + 1;
-                    return acc;
-                }, {});
-                Object.entries(sizeFrequency)
-                    .sort(([, countA], [, countB]) => countB - countA)
-                    .slice(0, 2)
-                    .forEach(([numberStr]) => {
-                        combinedPredictions[parseInt(numberStr, 10)] =
-                            (combinedPredictions[parseInt(numberStr, 10)] ||
-                                0) +
-                            sizeProbability * COMBINED_PREDICTION_WEIGHT_FACTOR;
-                    });
-            }
-        } else if (last50Entries.length === MAX_ENTRIES) {
-            preference = "statistical";
-            const allNumbersFrequency = last50Entries.reduce((acc, entry) => {
-                acc[entry.number] = (acc[entry.number] || 0) + 1;
-                return acc;
-            }, {});
-            Object.entries(allNumbersFrequency)
-                .sort(([, countA], [, countB]) => countB - countA)
-                .slice(0, 3)
-                .forEach(([numberStr]) => {
-                    combinedPredictions[parseInt(numberStr, 10)] =
-                        (combinedPredictions[parseInt(numberStr, 10)] || 0) +
-                        STATISTICAL_PREDICTION_BASE_WEIGHT;
-                });
-        }
-
-        const boostedPredictions = applyLastEntryRule(combinedPredictions);
-
-        const sortedPredictionsWithWeight = Object.entries(
-            boostedPredictions
-        ).sort(([, weightA], [, weightB]) => weightB - weightA);
-
-        const topPredictions = [];
-        const predictedNumbers = new Set();
-        for (const [numberStr] of sortedPredictionsWithWeight) {
-            const number = parseInt(numberStr, 10);
-            if (!predictedNumbers.has(number)) {
-                topPredictions.push(number);
-                predictedNumbers.add(number);
-                if (topPredictions.length >= PREDICTION_COUNT) {
-                    break;
-                }
-            }
-        }
-
-        return { predictions: topPredictions, preference };
-    }, []);
-
-    const analyzeEntries = useCallback((currentEntries) => {
-        const numberAnalysis = {};
-        const colors = [];
-
-        currentEntries.forEach((entry, currentIndex) => {
-            const { number, period, color } = entry;
-            colors.push(color);
-
-            numberAnalysis[number] = numberAnalysis[number] || {
-                occurrences: [],
-            };
-
-            const occurrenceInfo = { fromPeriod: period };
-            occurrenceInfo.toPeriod =
-                currentIndex === currentEntries.length - 1
-                    ? "latest entire"
-                    : currentEntries[currentIndex + 1].period;
-            occurrenceInfo.toNumber =
-                currentIndex === currentEntries.length - 1
-                    ? "latest entire"
-                    : currentEntries[currentIndex + 1].number;
-
-            numberAnalysis[number].occurrences.push(occurrenceInfo);
-        });
-
-        Object.keys(numberAnalysis).forEach((numberStr) => {
-            const number = parseInt(numberStr, 10);
-            const occurrences = numberAnalysis[number].occurrences;
-            const nextNumbers = occurrences
-                .filter((occ) => occ.toNumber !== "latest entire")
-                .map((occ) => occ.toNumber);
-            const lastColors = nextNumbers.map((num) =>
-                getColor(num).replace("🟣", "")
-            );
-            const lastSizes = nextNumbers.map((num) => getSize(num)[0]); // Get first letter for size
-
-            const colorCounts = lastColors.reduce(
-                (acc, color) => ({
-                    ...acc,
-                    [color]: (acc[color] || 0) + 1,
-                }),
-                {}
-            );
-            const sizeCounts = lastSizes.reduce(
-                (acc, size) => ({ ...acc, [size]: (acc[size] || 0) + 1 }),
-                {}
-            );
-
-            numberAnalysis[number].colorSequence = lastColors.join("");
-            numberAnalysis[number].sizeSequence = lastSizes.join("");
-            numberAnalysis[number].predictedNextColor = Object.keys(
-                colorCounts
-            ).reduce(
-                (a, b) => (colorCounts[a] > colorCounts[b] ? a : b),
-                "N/A"
-            );
-            numberAnalysis[number].predictedNextSize = Object.keys(
-                sizeCounts
-            ).reduce((a, b) => (sizeCounts[a] > sizeCounts[b] ? a : b), "N/A");
-        });
-
-        setAnalysis(numberAnalysis);
-    }, []);
-
-    useEffect(() => {
-        if (entries.length > 0) {
-            const { predictions: newPredictions, preference: newPreference } =
-                predictTopTwoNumbers(entries);
-            setPredictions(newPredictions.slice(0, 1)); // Keep only the first prediction
-            setPredictionPreference(newPreference);
-            analyzeEntries(entries);
+        // Determine which prediction mode to use based on the best prediction result
+        if (bestPrediction === "Red" || bestPrediction === "Green") {
+            predictionData = getRobotPrediction(entries);
+        } else if (bestPrediction === "Big" || bestPrediction === "Small") {
+            predictionData = getHumanPrediction(entries);
         } else {
-            setPredictions([]);
-            setPredictionPreference(null);
-            setAnalysis({});
+            predictionData = { color: "Green", size: "Big" };
         }
-    }, [entries, predictTopTwoNumbers, analyzeEntries]);
 
-    const renderAnalysis = () => (
-        <div className="analysis-grid">
-            <h3>Number Analysis:</h3>
-            {Object.keys(analysis).map((number) => (
-                <div key={number} className="analysis-item">
-                    <h4>Number: {number}</h4>
-                    <ul>
-                        {analysis[number].occurrences.map(
-                            (occurrence, index) => (
-                                <li key={`${occurrence.fromPeriod}-${index}`}>
-                                    {" "}
-                                    {occurrence.fromPeriod} ➝ {number} ➝{" "}
-                                    {occurrence.toNumber !== "latest entire"
-                                        ? `${occurrence.toNumber} (${occurrence.toPeriod})`
-                                        : occurrence.toNumber}
-                                </li>
-                            )
-                        )}
-                    </ul>
-                    <p>
-                        Color Sequence:{" "}
-                        <span className="sequence">
-                            {analysis[number].colorSequence || "N/A"}
-                        </span>
-                    </p>
-                    <p>
-                        Size Sequence:{" "}
-                        <span className="sequence">
-                            {analysis[number].sizeSequence || "N/A"}
-                        </span>
-                    </p>
-                    {(predictionPreference === "color" ||
-                        predictionPreference === "both") && (
-                        <p>
-                            Predicted Next Color:{" "}
-                            <span
-                                className={`predicted-color ${analysis[number].predictedNextColor}`}
-                            >
-                                {analysis[number].predictedNextColor || "N/A"}
-                            </span>
-                        </p>
-                    )}
-                    {(predictionPreference === "size" ||
-                        predictionPreference === "both") && (
-                        <p>
-                            Predicted Next Size:{" "}
-                            <span
-                                className={`predicted-size ${analysis[number].predictedNextSize}`}
-                            >
-                                {analysis[number].predictedNextSize || "N/A"}
-                            </span>
-                        </p>
-                    )}
-                    {predictionPreference === null && (
-                        <>
-                            <p>
-                                Predicted Next Color:{" "}
-                                <span
-                                    className={`predicted-color ${analysis[number].predictedNextColor}`}
-                                >
-                                    {analysis[number].predictedNextColor ||
-                                        "N/A"}
-                                </span>
-                            </p>
-                            <p>
-                                Predicted Next Size:{" "}
-                                <span
-                                    className={`predicted-size ${analysis[number].predictedNextSize}`}
-                                >
-                                    {analysis[number].predictedNextSize ||
-                                        "N/A"}
-                                </span>
-                            </p>
-                        </>
-                    )}
-                </div>
-            ))}
-        </div>
-    );
+        const predictions = [predictionData.color, predictionData.size];
+
+        const selectedPrediction =
+            predictions.find((p) => p === bestPrediction) ||
+            predictions[Math.floor(Math.random() * predictions.length)];
+
+        const numbers = getNumbersToDisplay(
+            selectedPrediction === "Red" || selectedPrediction === "Green"
+                ? selectedPrediction
+                : "",
+            selectedPrediction === "Big" || selectedPrediction === "Small"
+                ? selectedPrediction
+                : ""
+        );
+
+        setPredictedResult(selectedPrediction);
+        setPredictedNumbers(numbers);
+        setShowPredictionCard(true);
+    };
 
     const backtoHome = () => {
         navigate("/");
@@ -481,7 +262,6 @@ const ColorPredictionApp = () => {
                     Back to home
                 </button>
                 <h2 className="app-title">Color Prediction App</h2>
-
                 <div className="input-section">
                     <input
                         type="text"
@@ -507,70 +287,36 @@ const ColorPredictionApp = () => {
                     </button>
                 </div>
 
-                {entries.length >= MAX_ENTRIES && predictions.length > 0 && (
-                    <div className="prediction-section">
-                        <h3>Top Prediction (Next Number):</h3>
-                        <div className="predictions-container">
-                            <h3>Predicted Number:</h3>
-                            <div className="predictedNum">
-                                {predictions.map((number) => {
-                                    const color = getColor(number);
-                                    return (
-                                        <span
-                                            key={number}
-                                            className={`color-tag ${color.replace(
-                                                "🟣",
-                                                ""
-                                            )}`}
-                                            style={{
-                                                background: color.includes("🟣")
-                                                    ? `linear-gradient(to right, ${
-                                                          color.split(
-                                                              "🟣"
-                                                          )[0] === "🔴"
-                                                              ? "#ffdddd"
-                                                              : "#ddffdd"
-                                                      } 50%, #e0b0ff 50%)`
-                                                    : color === "🔴"
-                                                    ? "#ffdddd"
-                                                    : "#ddffdd",
-                                                color: color.includes("🟣")
-                                                    ? color.split("🟣")[0] ===
-                                                      "🔴"
-                                                        ? "darkred"
-                                                        : "darkgreen"
-                                                    : color === "🔴"
-                                                    ? "darkred"
-                                                    : "darkgreen",
-                                                padding: "5px 10px",
-                                                borderRadius: "5px",
-                                                fontSize: "19px",
-                                                fontWeight: "bold",
-                                               
-                                            }}
-                                        >
-                                            {number}
-                                        </span>
-                                    );
-                                })}
+                <div className="prediction-controls">
+                    <button onClick={handlePredict} className="predict-button">
+                        Get Prediction
+                    </button>
+                    {showPredictionCard && predictedResult && (
+                        <div className="prediction-card">
+                            <h3 className="prediction-text">
+                                Predicted: {predictedResult}
+                            </h3>
+                            <div className="predicted-numbers">
+                                {predictedNumbers.length > 0 ? (
+                                    <>
+                                        {predictedNumbers.map((num, index) => (
+                                            <span
+                                                key={index}
+                                                className="predicted-number-tag"
+                                            >
+                                                {num}
+                                            </span>
+                                        ))}
+                                    </>
+                                ) : (
+                                    <span>
+                                        No numbers match the prediction.
+                                    </span>
+                                )}
                             </div>
                         </div>
-
-                        {predictionPreference && (
-                            <p className="prediction-info">
-                                Based on patterns where{" "}
-                                <b>
-                                    {predictionPreference === "color"
-                                        ? "color sequences"
-                                        : predictionPreference === "size"
-                                        ? "size patterns"
-                                        : "both color and size"}
-                                </b>{" "}
-                                showed more consistency.
-                            </p>
-                        )}
-                    </div>
-                )}
+                    )}
+                </div>
 
                 <div className="entries-table-container">
                     <h3>Recent Entries</h3>
@@ -584,15 +330,16 @@ const ColorPredictionApp = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {[...entries].reverse().map((entry) => (
+                            {entries.map((entry) => (
                                 <tr key={entry.id}>
                                     <td>{entry.period}</td>
                                     <td>{entry.number}</td>
                                     <td
-                                        className={`color-cell ${entry.color.replace(
-                                            "🟣",
-                                            ""
-                                        )}`}
+                                        className={`color-cell ${
+                                            entry.color.includes("🔴")
+                                                ? "red"
+                                                : "green"
+                                        }`}
                                     >
                                         {entry.color}
                                     </td>
@@ -602,8 +349,6 @@ const ColorPredictionApp = () => {
                         </tbody>
                     </table>
                 </div>
-
-                {Object.keys(analysis).length > 0 && renderAnalysis()}
 
                 {entries.length > 0 && (
                     <div className="all-colors-container">
@@ -621,13 +366,11 @@ const ColorPredictionApp = () => {
                                             i * DISPLAY_COLORS_PER_ROW,
                                             (i + 1) * DISPLAY_COLORS_PER_ROW
                                         )
+                                        .reverse()
                                         .map((entry) => (
                                             <span
                                                 key={entry.id}
-                                                className={`color-tag ${entry.color.replace(
-                                                    "🟣",
-                                                    ""
-                                                )}`}
+                                                className={`color-tag`}
                                                 style={{
                                                     background:
                                                         entry.color.includes(
@@ -647,20 +390,10 @@ const ColorPredictionApp = () => {
                                                     color: entry.color.includes(
                                                         "🟣"
                                                     )
-                                                        ? entry.color.split(
-                                                              "🟣"
-                                                          )[0] === "🔴"
-                                                            ? "darkred"
-                                                            : "darkgreen"
+                                                        ? "darkslateblue"
                                                         : entry.color === "🔴"
                                                         ? "darkred"
                                                         : "darkgreen",
-                                                    padding: "5px 10px",
-                                                    borderRadius: "5px",
-                                                    fontSize: "16px",
-                                                    fontWeight: "bold",
-                                                    marginRight: "5px",
-                                                    display: "inline-block",
                                                 }}
                                             >
                                                 {entry.number}
