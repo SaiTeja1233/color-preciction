@@ -162,6 +162,7 @@ const ColorPredictionApp = () => {
     const [showPredictionCard, setShowPredictionCard] = useState(false);
     const [predictedResult, setPredictedResult] = useState(null);
     const [predictedNumbers, setPredictedNumbers] = useState([]);
+    const [isLastPredictionLoss, setIsLastPredictionLoss] = useState(false); // New state variable
 
     const navigate = useNavigate();
 
@@ -210,6 +211,7 @@ const ColorPredictionApp = () => {
             setShowPredictionCard(false);
             setPredictedResult(null);
             setPredictedNumbers([]);
+            setIsLastPredictionLoss(false); // Reset loss state on new entries
         }
     };
 
@@ -219,36 +221,65 @@ const ColorPredictionApp = () => {
             return;
         }
 
-        const bestPrediction = getBestPrediction(entries);
+        let selectedPrediction;
         let predictionData;
+        let numbers;
 
-        // Determine which prediction mode to use based on the best prediction result
-        if (bestPrediction === "Red" || bestPrediction === "Green") {
-            predictionData = getRobotPrediction(entries);
-        } else if (bestPrediction === "Big" || bestPrediction === "Small") {
-            predictionData = getHumanPrediction(entries);
+        // Condition to check if a random prediction is needed
+        if (isLastPredictionLoss) {
+            const allColors = ["Red", "Green"];
+            const allSizes = ["Big", "Small"];
+            const randomType = Math.random() < 0.5 ? "color" : "size";
+
+            if (randomType === "color") {
+                selectedPrediction =
+                    allColors[Math.floor(Math.random() * allColors.length)];
+            } else {
+                selectedPrediction =
+                    allSizes[Math.floor(Math.random() * allSizes.length)];
+            }
+
+            numbers = getNumbersToDisplay(
+                selectedPrediction === "Red" || selectedPrediction === "Green"
+                    ? selectedPrediction
+                    : "",
+                selectedPrediction === "Big" || selectedPrediction === "Small"
+                    ? selectedPrediction
+                    : ""
+            );
         } else {
-            predictionData = { color: "Green", size: "Big" };
+            // Existing logic for "Human" or "Robot" prediction
+            const bestPrediction = getBestPrediction(entries);
+            predictionData =
+                bestPrediction === "Red" || bestPrediction === "Green"
+                    ? getRobotPrediction(entries)
+                    : getHumanPrediction(entries);
+
+            const predictions = [predictionData.color, predictionData.size];
+
+            selectedPrediction =
+                predictions.find((p) => p === bestPrediction) ||
+                predictions[Math.floor(Math.random() * predictions.length)];
+
+            numbers = getNumbersToDisplay(
+                selectedPrediction === "Red" || selectedPrediction === "Green"
+                    ? selectedPrediction
+                    : "",
+                selectedPrediction === "Big" || selectedPrediction === "Small"
+                    ? selectedPrediction
+                    : ""
+            );
         }
-
-        const predictions = [predictionData.color, predictionData.size];
-
-        const selectedPrediction =
-            predictions.find((p) => p === bestPrediction) ||
-            predictions[Math.floor(Math.random() * predictions.length)];
-
-        const numbers = getNumbersToDisplay(
-            selectedPrediction === "Red" || selectedPrediction === "Green"
-                ? selectedPrediction
-                : "",
-            selectedPrediction === "Big" || selectedPrediction === "Small"
-                ? selectedPrediction
-                : ""
-        );
 
         setPredictedResult(selectedPrediction);
         setPredictedNumbers(numbers);
         setShowPredictionCard(true);
+    };
+
+    const handlePredictionOutcome = (isLoss) => {
+        setIsLastPredictionLoss(isLoss);
+        // Optional: clear the prediction display after user gives feedback
+        // setShowPredictionCard(false);
     };
 
     const backtoHome = () => {
@@ -317,6 +348,25 @@ const ColorPredictionApp = () => {
                         </div>
                     )}
                 </div>
+
+                {/* New UI for user feedback */}
+                {showPredictionCard && predictedResult && (
+                    <div className="feedback-section">
+                        <p>Was the prediction a win or a loss?</p>
+                        <button
+                            onClick={() => handlePredictionOutcome(false)}
+                            className="win-btn"
+                        >
+                            Win
+                        </button>
+                        <button
+                            onClick={() => handlePredictionOutcome(true)}
+                            className="loss-btn"
+                        >
+                            Loss
+                        </button>
+                    </div>
+                )}
 
                 <div className="entries-table-container">
                     <h3>Recent Entries</h3>
