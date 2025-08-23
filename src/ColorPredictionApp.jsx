@@ -241,8 +241,6 @@ const ColorPredictionApp = () => {
                        
                 <div className="prediction-controls">
                              
-                    {/* The new toggle switch replaces the old buttons */}  
-                          
                     <div className="btn-container">
                                    
                         <label className="switch btn-color-mode-switch">
