@@ -198,17 +198,17 @@ const ColorPredictionApp = () => {
 
     return (
         <div className="mainColorContainer">
-                       {" "}
+                 
             <div className="container">
-                               {" "}
+                       
                 <button className="BckHome-btn" onClick={backtoHome}>
-                                        Back to home                {" "}
+                              Back to home        
                 </button>
-                               {" "}
-                <h2 className="app-title">Color Prediction App</h2>             
-                 {" "}
+                       
+                <h2 className="app-title">Color Prediction App</h2>      
+                
                 <div className="input-section">
-                                       {" "}
+                             
                     <input
                         type="text"
                         placeholder="Period"
@@ -216,7 +216,7 @@ const ColorPredictionApp = () => {
                         onChange={(e) => setInputPeriod(e.target.value)}
                         className="input-field"
                     />
-                                       {" "}
+                             
                     <input
                         type="text"
                         placeholder="Numbers (e.g., 1 2 5)"
@@ -229,19 +229,19 @@ const ColorPredictionApp = () => {
                         }}
                         className="input-field"
                     />
-                                       {" "}
+                             
                     <button onClick={handleAddEntries} className="add-button">
-                                                Add Entries                    {" "}
+                                    Add Entries          
                     </button>
-                                   {" "}
+                           
                 </div>
-                               {" "}
+                       
                 <div className="prediction-controls">
-                                       {" "}
+                             
                     <div className="btn-container">
-                                               {" "}
+                                   
                         <label className="switch btn-color-mode-switch">
-                                                       {" "}
+                                         
                             <input
                                 value="1"
                                 id="color_mode"
@@ -250,88 +250,88 @@ const ColorPredictionApp = () => {
                                 checked={predictionType === "size"}
                                 onChange={handleToggleChange}
                             />
-                                                       {" "}
+                                         
                             <label
                                 className="btn-color-mode-switch-inner"
                                 data-off="Color"
                                 data-on="Size"
                                 htmlFor="color_mode"
                             ></label>
-                                                   {" "}
+                                       
                         </label>
-                                           {" "}
+                                 
                     </div>
-                                       {" "}
+                             
                     <button onClick={handlePredict} className="predict-button">
-                                                Get Prediction                  
-                         {" "}
+                                    Get Prediction         
+                        
                     </button>
-                                       {" "}
+                             
                     {showPredictionCard && predictedResult && (
                         <div className="prediction-card">
-                                                       {" "}
+                                         
                             <h3 className="prediction-text">
-                                                                Predicted:{" "}
-                                {predictedResult}                           {" "}
+                                                Predicted:
+                                {predictedResult}             
                             </h3>
-                                                       {" "}
+                                         
                             <div className="predicted-numbers">
-                                                               {" "}
+                                               
                                 {predictedNumbers.length > 0 ? (
                                     <>
-                                                                               {" "}
+                                                           
                                         {predictedNumbers.map((num, index) => (
                                             <span
                                                 key={index}
                                                 className="predicted-number-tag"
                                             >
-                                                                               
-                                                                {num}           
-                                                                               {" "}
+                                                               
+                                                        {num}     
+                                                               
                                             </span>
                                         ))}
-                                                                           {" "}
+                                                         
                                     </>
                                 ) : (
                                     <span>
-                                                                               
-                                        No numbers match the prediction.        
-                                                                   {" "}
+                                                           
+                                        No numbers match the prediction.    
+                                                     
                                     </span>
                                 )}
-                                                           {" "}
+                                             
                             </div>
-                                                   {" "}
+                                       
                         </div>
                     )}
-                                   {" "}
+                           
                 </div>
-                               {" "}
+                       
                 <div className="entries-table-container">
-                                        <h3>Recent Entries</h3>                 
-                     {" "}
+                              <h3>Recent Entries</h3>        
+                    
                     <table className="entries-table">
-                                               {" "}
+                                   
                         <thead>
-                                                       {" "}
+                                         
                             <tr>
-                                                                <th>Period</th> 
-                                                              <th>Number</th>   
-                                                            <th>Color</th>     
-                                                          <th>Size</th>         
-                                                 {" "}
+                                                <th>Period</th>
+                                               <th>Number</th> 
+                                              <th>Color</th>  
+                                             <th>Size</th>    
+                                        
                             </tr>
-                                                   {" "}
+                                       
                         </thead>
-                                               {" "}
+                                   
                         <tbody>
-                                                       {" "}
+                                         
                             {entries.map((entry) => (
                                 <tr key={entry.id}>
-                                                                       {" "}
-                                    <td>{entry.period}</td>                     
-                                                  <td>{entry.number}</td>       
-                                                               {" "}
+                                                     
+                                    <td>{entry.period}</td>          
+                                           <td>{entry.number}</td>   
+                                                 
                                     <td
                                         className={`color-cell ${
                                             entry.color.includes("🔴")
@@ -339,27 +339,27 @@ const ColorPredictionApp = () => {
                                                 : "green"
                                         }`}
                                     >
-                                                                               {" "}
-                                        {entry.color}                           
-                                               {" "}
+                                                           
+                                        {entry.color}             
+                                           
                                     </td>
-                                                                       {" "}
-                                    <td>{entry.size}</td>                       
-                                           {" "}
+                                                     
+                                    <td>{entry.size}</td>           
+                                       
                                 </tr>
                             ))}
-                                                   {" "}
+                                       
                         </tbody>
-                                           {" "}
+                                 
                     </table>
-                                   {" "}
+                           
                 </div>
-                               {" "}
+                       
                 {entries.length > 0 && (
                     <div className="all-colors-container">
-                                               {" "}
-                        <h3>All Entered Numbers with Colors:</h3>               
-                               {" "}
+                                   
+                        <h3>All Entered Numbers with Colors:</h3>       
+                           
                         {Array.from(
                             {
                                 length: Math.ceil(
@@ -368,7 +368,7 @@ const ColorPredictionApp = () => {
                             },
                             (_, i) => (
                                 <div key={i} className="color-display-group">
-                                                                       {" "}
+                                                     
                                     {entries
                                         .slice(
                                             i * DISPLAY_COLORS_PER_ROW,
@@ -404,22 +404,22 @@ const ColorPredictionApp = () => {
                                                         : "darkgreen",
                                                 }}
                                             >
-                                                                               
-                                                                {entry.number} 
-                                                                               
-                                                         {" "}
+                                                               
+                                                        {entry.number}
+                                                               
+                                                    
                                             </span>
                                         ))}
-                                                                   {" "}
+                                                   
                                 </div>
                             )
                         )}
-                                           {" "}
+                                 
                     </div>
                 )}
-                           {" "}
+                     
             </div>
-                   {" "}
+               
         </div>
     );
 };
