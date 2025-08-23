@@ -79,25 +79,37 @@ const getNumbersToDisplay = (prediction) => {
     const isColorPrediction = prediction === "Red" || prediction === "Green";
     const isSizePrediction = prediction === "Big" || prediction === "Small";
 
-    const allNumbers = Array.from({ length: 10 }, (_, i) => i);
-
-    if (isSizePrediction) {
-        return allNumbers.filter((num) => {
-            const size = getSize(num);
-            return size === prediction;
-        });
-    } else if (isColorPrediction) {
-        return allNumbers.filter((num) => {
-            const color = getColor(num);
-            if (prediction === "Red") {
-                return color.includes("🔴");
-            } else {
-                return color.includes("🟢");
+    if (isColorPrediction || isSizePrediction) {
+        const allNumbers = Array.from({ length: 10 }, (_, i) => i); // Filter all numbers that match the prediction
+        const filteredNumbers = allNumbers.filter((num) => {
+            if (isColorPrediction) {
+                const color = getColor(num);
+                return (
+                    (prediction === "Red" && color.includes("🔴")) ||
+                    (prediction === "Green" && color.includes("🟢"))
+                );
+            } else if (isSizePrediction) {
+                return getSize(num) === prediction;
             }
-        });
-    } else {
-        return allNumbers;
+            return false;
+        }); // If the filtered list is empty or has only one number, return what's available
+
+        if (filteredNumbers.length <= 1) {
+            return filteredNumbers;
+        } // Select a random number from the filtered list
+
+        const selectedNumbers = new Set();
+        while (selectedNumbers.size < 2 && filteredNumbers.length > 0) {
+            const randomIndex = Math.floor(
+                Math.random() * filteredNumbers.length
+            );
+            selectedNumbers.add(filteredNumbers.splice(randomIndex, 1)[0]);
+        }
+
+        return Array.from(selectedNumbers).sort((a, b) => a - b);
     }
+
+    return []; // Return an empty array if there's no valid prediction
 };
 
 // Main React component
