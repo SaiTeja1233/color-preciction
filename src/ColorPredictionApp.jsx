@@ -74,84 +74,33 @@ const getRobotPrediction = (historyData) => {
     return { color: predictedColor, size: predictedSize };
 };
 
-const getNumbersToDisplay = (predictedColor, predictedSize) => {
-    const matchingNumbers = [];
-
-    let colorNumbers;
-    if (predictedColor === "Red") {
-        colorNumbers = [0, 2, 4, 6, 8];
-    } else if (predictedColor === "Green") {
-        colorNumbers = [1, 3, 5, 7, 9];
-    } else {
-        colorNumbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    }
-
-    const sizeNumbers =
-        predictedSize === "Big" ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4];
-
-    // Find the intersection of both sets
-    for (const num of colorNumbers) {
-        if (sizeNumbers.includes(num)) {
-            matchingNumbers.push(num);
-        }
-    }
-
+const getNumbersToDisplay = (prediction) => {
     const uniqueNumbers = new Set();
-    while (uniqueNumbers.size < 2 && matchingNumbers.length > 0) {
-        const randomIndex = Math.floor(Math.random() * matchingNumbers.length);
-        uniqueNumbers.add(matchingNumbers[randomIndex]);
-    }
+    const isColorPrediction = prediction === "Red" || prediction === "Green";
+    const isSizePrediction = prediction === "Big" || prediction === "Small";
 
+    while (uniqueNumbers.size < 2) {
+        let num;
+        if (isSizePrediction) {
+            num =
+                prediction === "Big"
+                    ? Math.floor(Math.random() * 5) + 5
+                    : Math.floor(Math.random() * 5);
+        } else if (isColorPrediction) {
+            const evenNumbers = [0, 2, 4, 6, 8];
+            const oddNumbers = [1, 3, 5, 7, 9];
+            num =
+                prediction === "Red"
+                    ? evenNumbers[
+                          Math.floor(Math.random() * evenNumbers.length)
+                      ]
+                    : oddNumbers[Math.floor(Math.random() * oddNumbers.length)];
+        } else {
+            num = Math.floor(Math.random() * 10);
+        }
+        uniqueNumbers.add(num);
+    }
     return Array.from(uniqueNumbers);
-};
-
-// New function to determine which prediction is more accurate
-const getBestPrediction = (history) => {
-    if (history.length === 0) return "Green"; // Default
-
-    // Check accuracy of the last 5 entries
-    const recentHistory = history.slice(0, 5);
-
-    let humanColorWins = 0;
-    let humanSizeWins = 0;
-
-    let robotColorWins = 0;
-    let robotSizeWins = 0;
-
-    // Check against history to determine the best prediction mode
-    for (let i = 0; i < recentHistory.length; i++) {
-        const subHistory = history.slice(i + 1);
-        if (subHistory.length > 0) {
-            // Human prediction check
-            const humanPred = getHumanPrediction(subHistory);
-            const actualColor = getColor(recentHistory[i].number).includes("🔴")
-                ? "Red"
-                : "Green";
-            const actualSize = getSize(recentHistory[i].number);
-            if (humanPred.color === actualColor) humanColorWins++;
-            if (humanPred.size === actualSize) humanSizeWins++;
-
-            // Robot prediction check
-            const robotPred = getRobotPrediction(subHistory);
-            if (robotPred.color === actualColor) robotColorWins++;
-            if (robotPred.size === actualSize) robotSizeWins++;
-        }
-    }
-
-    // Compare and return the best overall prediction
-    if (humanColorWins + humanSizeWins > robotColorWins + robotSizeWins) {
-        if (humanColorWins > humanSizeWins) {
-            return getHumanPrediction(history).color;
-        } else {
-            return getHumanPrediction(history).size;
-        }
-    } else {
-        if (robotColorWins > robotSizeWins) {
-            return getRobotPrediction(history).color;
-        } else {
-            return getRobotPrediction(history).size;
-        }
-    }
 };
 
 // Main React component
@@ -162,7 +111,7 @@ const ColorPredictionApp = () => {
     const [showPredictionCard, setShowPredictionCard] = useState(false);
     const [predictedResult, setPredictedResult] = useState(null);
     const [predictedNumbers, setPredictedNumbers] = useState([]);
-    const [isLastPredictionLoss, setIsLastPredictionLoss] = useState(false); // New state variable
+    const [predictionType, setPredictionType] = useState("color");
 
     const navigate = useNavigate();
 
@@ -207,11 +156,9 @@ const ColorPredictionApp = () => {
             );
             setInputNumbers("");
 
-            // Clear prediction after adding a new entry
             setShowPredictionCard(false);
             setPredictedResult(null);
             setPredictedNumbers([]);
-            setIsLastPredictionLoss(false); // Reset loss state on new entries
         }
     };
 
@@ -221,79 +168,50 @@ const ColorPredictionApp = () => {
             return;
         }
 
+        const humanPrediction = getHumanPrediction(entries);
+        const robotPrediction = getRobotPrediction(entries);
+
         let selectedPrediction;
-        let predictionData;
-        let numbers;
+        let numbersToDisplay;
 
-        // Condition to check if a random prediction is needed
-        if (isLastPredictionLoss) {
-            const allColors = ["Red", "Green"];
-            const allSizes = ["Big", "Small"];
-            const randomType = Math.random() < 0.5 ? "color" : "size";
+        const activePrediction =
+            entries.length >= 10 ? robotPrediction : humanPrediction;
 
-            if (randomType === "color") {
-                selectedPrediction =
-                    allColors[Math.floor(Math.random() * allColors.length)];
-            } else {
-                selectedPrediction =
-                    allSizes[Math.floor(Math.random() * allSizes.length)];
-            }
-
-            numbers = getNumbersToDisplay(
-                selectedPrediction === "Red" || selectedPrediction === "Green"
-                    ? selectedPrediction
-                    : "",
-                selectedPrediction === "Big" || selectedPrediction === "Small"
-                    ? selectedPrediction
-                    : ""
-            );
+        if (predictionType === "color") {
+            selectedPrediction = activePrediction.color;
+            numbersToDisplay = getNumbersToDisplay(selectedPrediction);
         } else {
-            // Existing logic for "Human" or "Robot" prediction
-            const bestPrediction = getBestPrediction(entries);
-            predictionData =
-                bestPrediction === "Red" || bestPrediction === "Green"
-                    ? getRobotPrediction(entries)
-                    : getHumanPrediction(entries);
-
-            const predictions = [predictionData.color, predictionData.size];
-
-            selectedPrediction =
-                predictions.find((p) => p === bestPrediction) ||
-                predictions[Math.floor(Math.random() * predictions.length)];
-
-            numbers = getNumbersToDisplay(
-                selectedPrediction === "Red" || selectedPrediction === "Green"
-                    ? selectedPrediction
-                    : "",
-                selectedPrediction === "Big" || selectedPrediction === "Small"
-                    ? selectedPrediction
-                    : ""
-            );
+            selectedPrediction = activePrediction.size;
+            numbersToDisplay = getNumbersToDisplay(selectedPrediction);
         }
 
         setPredictedResult(selectedPrediction);
-        setPredictedNumbers(numbers);
+        setPredictedNumbers(numbersToDisplay);
         setShowPredictionCard(true);
-    };
-
-    const handlePredictionOutcome = (isLoss) => {
-        setIsLastPredictionLoss(isLoss);
-        // Optional: clear the prediction display after user gives feedback
-        // setShowPredictionCard(false);
     };
 
     const backtoHome = () => {
         navigate("/");
+    }; // Handler to update state based on toggle position
+
+    const handleToggleChange = (event) => {
+        setPredictionType(event.target.checked ? "size" : "color");
+        setShowPredictionCard(false); // Hide the prediction when switching modes
     };
 
     return (
         <div className="mainColorContainer">
+                 
             <div className="container">
+                       
                 <button className="BckHome-btn" onClick={backtoHome}>
-                    Back to home
+                              Back to home        
                 </button>
-                <h2 className="app-title">Color Prediction App</h2>
+                       
+                <h2 className="app-title">Color Prediction App</h2>      
+                
                 <div className="input-section">
+                             
                     <input
                         type="text"
                         placeholder="Period"
@@ -301,6 +219,7 @@ const ColorPredictionApp = () => {
                         onChange={(e) => setInputPeriod(e.target.value)}
                         className="input-field"
                     />
+                             
                     <input
                         type="text"
                         placeholder="Numbers (e.g., 1 2 5)"
@@ -313,77 +232,111 @@ const ColorPredictionApp = () => {
                         }}
                         className="input-field"
                     />
+                             
                     <button onClick={handleAddEntries} className="add-button">
-                        Add Entries
+                                    Add Entries          
                     </button>
+                           
                 </div>
-
+                       
                 <div className="prediction-controls">
+                             
+                    {/* The new toggle switch replaces the old buttons */}  
+                          
+                    <div className="btn-container">
+                                   
+                        <label className="switch btn-color-mode-switch">
+                                         
+                            <input
+                                value="1"
+                                id="color_mode"
+                                name="color_mode"
+                                type="checkbox"
+                                checked={predictionType === "size"}
+                                onChange={handleToggleChange}
+                            />
+                                         
+                            <label
+                                className="btn-color-mode-switch-inner"
+                                data-off="Color"
+                                data-on="Size"
+                                htmlFor="color_mode"
+                            ></label>
+                                       
+                        </label>
+                                 
+                    </div>
+                             
                     <button onClick={handlePredict} className="predict-button">
-                        Get Prediction
+                                    Get Prediction         
+                        
                     </button>
+                             
                     {showPredictionCard && predictedResult && (
                         <div className="prediction-card">
+                                         
                             <h3 className="prediction-text">
-                                Predicted: {predictedResult}
+                                                Predicted:
+                                {predictedResult}             
                             </h3>
+                                         
                             <div className="predicted-numbers">
+                                               
                                 {predictedNumbers.length > 0 ? (
                                     <>
+                                                           
                                         {predictedNumbers.map((num, index) => (
                                             <span
                                                 key={index}
                                                 className="predicted-number-tag"
                                             >
-                                                {num}
+                                                               
+                                                        {num}     
+                                                               
                                             </span>
                                         ))}
+                                                         
                                     </>
                                 ) : (
                                     <span>
-                                        No numbers match the prediction.
+                                                           
+                                        No numbers match the prediction.    
+                                                     
                                     </span>
                                 )}
+                                             
                             </div>
+                                       
                         </div>
                     )}
+                           
                 </div>
-
-                {/* New UI for user feedback */}
-                {showPredictionCard && predictedResult && (
-                    <div className="feedback-section">
-                        <p>Was the prediction a win or a loss?</p>
-                        <button
-                            onClick={() => handlePredictionOutcome(false)}
-                            className="win-btn"
-                        >
-                            Win
-                        </button>
-                        <button
-                            onClick={() => handlePredictionOutcome(true)}
-                            className="loss-btn"
-                        >
-                            Loss
-                        </button>
-                    </div>
-                )}
-
+                       
                 <div className="entries-table-container">
-                    <h3>Recent Entries</h3>
+                              <h3>Recent Entries</h3>        
+                    
                     <table className="entries-table">
+                                   
                         <thead>
+                                         
                             <tr>
-                                <th>Period</th>
-                                <th>Number</th>
-                                <th>Color</th>
-                                <th>Size</th>
+                                                <th>Period</th>
+                                               <th>Number</th> 
+                                              <th>Color</th>  
+                                             <th>Size</th>    
+                                        
                             </tr>
+                                       
                         </thead>
+                                   
                         <tbody>
+                                         
                             {entries.map((entry) => (
                                 <tr key={entry.id}>
-                                    <td>{entry.period}</td>
-                                    <td>{entry.number}</td>
+                                                     
+                                    <td>{entry.period}</td>          
+                                           <td>{entry.number}</td>   
+                                                 
                                     <td
                                         className={`color-cell ${
                                             entry.color.includes("🔴")
@@ -391,18 +344,27 @@ const ColorPredictionApp = () => {
                                                 : "green"
                                         }`}
                                     >
-                                        {entry.color}
+                                                           
+                                        {entry.color}             
+                                           
                                     </td>
-                                    <td>{entry.size}</td>
+                                                     
+                                    <td>{entry.size}</td>           
+                                       
                                 </tr>
                             ))}
+                                       
                         </tbody>
+                                 
                     </table>
+                           
                 </div>
-
+                       
                 {entries.length > 0 && (
                     <div className="all-colors-container">
-                        <h3>All Entered Numbers with Colors:</h3>
+                                   
+                        <h3>All Entered Numbers with Colors:</h3>       
+                           
                         {Array.from(
                             {
                                 length: Math.ceil(
@@ -411,6 +373,7 @@ const ColorPredictionApp = () => {
                             },
                             (_, i) => (
                                 <div key={i} className="color-display-group">
+                                                     
                                     {entries
                                         .slice(
                                             i * DISPLAY_COLORS_PER_ROW,
@@ -446,15 +409,22 @@ const ColorPredictionApp = () => {
                                                         : "darkgreen",
                                                 }}
                                             >
-                                                {entry.number}
+                                                               
+                                                        {entry.number}
+                                                               
+                                                    
                                             </span>
                                         ))}
+                                                   
                                 </div>
                             )
                         )}
+                                 
                     </div>
                 )}
+                     
             </div>
+               
         </div>
     );
 };
